@@ -84,9 +84,11 @@ async def admin_approve_callback(update: Update, context: ContextTypes.DEFAULT_T
     try:
         await context.bot.send_message(
             chat_id=result["user_telegram_id"],
-            text=PAYMENT_APPROVED.format(order_id=order_id, credits=result["credits"],
-                expire=format_shamsi_approx(result["expire_iso"])),
-            parse_mode="Markdown", reply_markup=back_to_main_keyboard())
+            text=(f"✅ پرداخت سفارش {order_id} تأیید شد.\n"
+                  f"سرویس: {result['service_title']}\nاعتبار افزوده‌شده: {result['credits']} جست‌وجو\n"
+                  + (f"انقضا: {format_shamsi_approx(result['expire_iso'])}" if result['expire_iso']
+                     else "بدون انقضای زمانی؛ از منو سرویس خریداری‌شده را انتخاب کنید.")),
+            parse_mode=None, reply_markup=back_to_main_keyboard())
     except Exception as exc:
         logger.error("Failed to notify user: %s", exc)
     await query.edit_message_text(f"✅ سفارش `{order_id}` تأیید شد.", parse_mode="Markdown")
@@ -157,8 +159,11 @@ async def cancel_order_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text(ORDER_ALREADY_PROCESSED, reply_markup=back_to_main_keyboard()); return
     from app.db.database import get_connection
     with get_connection() as conn:
-        conn.execute("UPDATE orders SET status='expired',updated_at=? WHERE order_id=? AND telegram_user_id=?",
-            (now_iso(), order_id, user.id))
+        changed = conn.execute("UPDATE orders SET status='expired',updated_at=? WHERE order_id=? AND telegram_user_id=? AND status='awaiting_payment'",
+            (now_iso(), order_id, user.id)).rowcount
         conn.commit()
+    if not changed:
+        await query.edit_message_text(ORDER_ALREADY_PROCESSED, reply_markup=back_to_main_keyboard())
+        return
     await query.edit_message_text(f"سفارش `{order_id}` لغو شد.",
         parse_mode="Markdown", reply_markup=back_to_main_keyboard())

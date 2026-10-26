@@ -4,10 +4,11 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔍 تحلیل آیدی", callback_data="menu:analyze"),
-         InlineKeyboardButton("💳 خرید اشتراک", callback_data="menu:plans")],
+         InlineKeyboardButton("💳 خرید جست‌وجو", callback_data="menu:plans")],
         [InlineKeyboardButton("👤 حساب من", callback_data="menu:account"),
          InlineKeyboardButton("📩 ارتباط با ادمین", callback_data="menu:support")],
         [InlineKeyboardButton("📧 بررسی ایمیل", callback_data="menu:email")],
+        [InlineKeyboardButton("📖 راهنمای استفاده", callback_data="menu:help")],
         [InlineKeyboardButton("📢 کانال اطلاع‌رسانی ردپا", url="https://t.me/Radepa_Updates")],
     ])
 
@@ -47,7 +48,7 @@ def admin_user_actions_keyboard(telegram_user_id: int, is_blocked: bool) -> Inli
 
 def account_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 خرید اشتراک", callback_data="menu:plans")],
+        [InlineKeyboardButton("💳 خرید جست‌وجو", callback_data="menu:plans")],
         [InlineKeyboardButton("🔙 بازگشت", callback_data="menu:main")],
     ])
 

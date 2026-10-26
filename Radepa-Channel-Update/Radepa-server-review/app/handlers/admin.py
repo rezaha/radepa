@@ -217,7 +217,8 @@ def _fmt_user(u: dict) -> str:
     return (
         f"👤 *{u.get('first_name','؟')}* ({uname})\n"
         f"🆔 `{u['telegram_user_id']}`\n"
-        f"💎 اعتبار: {u.get('credits',0)} | انقضا: {exp}\n"
+        f"📧 ایمیل: {u.get('email_credits',0)} | 🔎 اینستاگرام: {u.get('instagram_credits',0)}\n"
+        f"💎 اعتبار قدیمی اینستاگرام: {u.get('credits',0)} | انقضا: {exp}\n"
         f"وضعیت: {blocked} | آخرین بازدید: {ls}"
     )
 
@@ -391,7 +392,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         context.user_data["adm_await"]  = "addcredits"
         context.user_data["adm_target"] = tid
         await q.edit_message_text(
-            f"💎 چند تا اعتبار به کاربر `{tid}` اضافه بشه؟",
+            f"💎 چند اعتبار قدیمی اینستاگرام به کاربر `{tid}` اضافه شود؟ (با انقضای قبلی)",
             parse_mode="Markdown",
             reply_markup=_back("adm:main")
         )

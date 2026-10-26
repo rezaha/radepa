@@ -28,7 +28,8 @@ from app.handlers.channel_stats import channel_stats_command
 logger = get_logger(__name__)
 
 def _seed_plans():
-    PlanRepo.upsert("FULL_3X", "اشتراک کامل ۳ بار استفاده", 499_000, 3, 30, 1)
+    from app.services.products import seed_products
+    seed_products()
     logger.info("Plans seeded.")
 
 async def _expire_orders_job(context):
@@ -70,6 +71,8 @@ def main():
     setup_logging(config.log_file, config.log_level)
     init_db(config.db_path)
     _seed_plans()
+    from app.services.credit_service import CreditService
+    CreditService.recover_interrupted()
     serper = SerperService()
     job_service = JobService(serper)
     # پروکسی فقط وقتی استفاده می‌شود که TELEGRAM_PROXY_URL در .env تنظیم شده باشد
@@ -99,6 +102,7 @@ def main():
     app.add_handler(CallbackQueryHandler(clear_pending_email), group=-2)
     app.add_handler(CommandHandler("start",   start_handler))
     app.add_handler(CommandHandler("help",    help_handler))
+    app.add_handler(CallbackQueryHandler(help_handler, pattern="^menu:help$"))
     app.add_handler(CommandHandler("analyze", analyze_shortcut_handler))
     app.add_handler(CommandHandler("account", account_shortcut_handler))
     app.add_handler(CommandHandler("plans",   plans_shortcut_handler))

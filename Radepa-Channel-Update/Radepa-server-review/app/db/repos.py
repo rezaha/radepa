@@ -129,6 +129,12 @@ class OrderRepo:
         order_id = f"ORD-{uuid.uuid4().hex[:10].upper()}"
         ts = now_iso()
         with get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            pending = conn.execute("SELECT * FROM orders WHERE telegram_user_id=? AND status IN ('awaiting_payment','awaiting_review') ORDER BY id DESC LIMIT 1", (telegram_user_id,)).fetchone()
+            if pending:
+                if pending["plan_code"] == plan_code and pending["status"] == "awaiting_payment":
+                    return dict(pending)
+                return None
             conn.execute(
                 """INSERT INTO orders (order_id,telegram_user_id,plan_code,amount_toman,
                    status,evidence_type,created_at,updated_at)
@@ -157,14 +163,15 @@ class OrderRepo:
                 (telegram_user_id,)).fetchone())
 
     @staticmethod
-    def submit_evidence(order_id, evidence_type, evidence_file_id, evidence_text) -> None:
+    def submit_evidence(order_id, evidence_type, evidence_file_id, evidence_text) -> bool:
         with get_connection() as conn:
-            conn.execute(
+            cur = conn.execute(
                 """UPDATE orders SET status='awaiting_review',evidence_type=?,
                    evidence_file_id=?,evidence_text=?,updated_at=?
                    WHERE order_id=? AND status='awaiting_payment'""",
                 (evidence_type, evidence_file_id, evidence_text, now_iso(), order_id))
             conn.commit()
+            return cur.rowcount == 1
 
     @staticmethod
     def approve(order_id: str, admin_id: int, note: str = "") -> bool:
@@ -250,7 +257,7 @@ class JobRepo:
     @staticmethod
     def fail(job_id: int) -> None:
         with get_connection() as conn:
-            conn.execute("UPDATE jobs SET status='failed' WHERE id=?", (job_id,))
+            conn.execute("UPDATE jobs SET status='failed', credits_charged=0 WHERE id=?", (job_id,))
             conn.commit()
 
     @staticmethod

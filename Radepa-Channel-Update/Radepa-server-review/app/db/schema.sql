@@ -64,3 +64,16 @@ CREATE TABLE IF NOT EXISTS job_sources (
     query_pattern TEXT,
     FOREIGN KEY (job_id) REFERENCES jobs(id)
 );
+
+-- Reservations track credit origin so refunds cannot cross products or repeat.
+CREATE TABLE IF NOT EXISTS search_charges (
+    id TEXT PRIMARY KEY,
+    telegram_user_id INTEGER NOT NULL,
+    service TEXT NOT NULL CHECK (service IN ('email', 'instagram')),
+    balance_column TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'reserved',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (telegram_user_id) REFERENCES users(telegram_user_id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_search_charge_running
+ON search_charges(telegram_user_id, service) WHERE status='reserved';

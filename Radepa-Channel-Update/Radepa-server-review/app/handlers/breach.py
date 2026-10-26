@@ -1,19 +1,19 @@
 """Direct single-email lookups of public breach metadata; no SMTP or ownership gate."""
 from __future__ import annotations
 
-import html
 import time
 
 from telegram import Update
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
 from app.db.repos import OrderRepo, UserRepo
+from app.utils.keyboards import account_keyboard
 from app.services.leakcheck_public import BreachSummary, LeakCheckPublic, LeakCheckUnavailable
-from app.utils.email_utils import mask_email, normalize_email
+from app.utils.email_utils import normalize_email
 
 EMAIL_BUTTON = "📧 بررسی ایمیل"
 _MENU_TEXTS = {EMAIL_BUTTON, "🔍 تحلیل آیدی", "💳 خرید اشتراک", "👤 حساب من",
-               "📩 پشتیبانی", "⚙️ پنل ادمین"}
+               "📩 پشتیبانی", "⚙️ پنل ادمین", "📖 راهنمای استفاده", "💳 خرید جست‌وجو", "📢 کانال اطلاع‌رسانی"}
 _OTHER_INPUTS = ("awaiting_instagram_username", "awaiting_support_message",
                  "adm_await", "rejecting_order_id")
 
@@ -22,6 +22,8 @@ async def clear_pending_email(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Any new command or inline action leaves the previous email prompt."""
     context.user_data.pop("awaiting_breach_email", None)
     context.user_data.pop("awaiting_verify_email", None)
+    context.user_data.pop("awaiting_instagram_username", None)
+    context.user_data.pop("awaiting_support_message", None)
 
 
 async def _allowed(update: Update) -> bool:
@@ -46,6 +48,8 @@ async def email_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     context.user_data["awaiting_breach_email"] = True
     await update.effective_message.reply_text(
         "📧 یک ایمیل بفرست تا خلاصه نشت‌های گزارش‌شده را بررسی کنم.\n"
+        "هر بررسی یک اعتبار ایمیل مصرف می‌کند؛ قیمت: ۱۹۹٬۰۰۰ تومان.\n"
+        "پاسخ موفق بدون نتیجه هم یک بررسی است؛ خطای سرویس اعتبار مصرف نمی‌کند.\n"
         "نیازی به لینک تأیید نیست. خروجی شامل منابع نشت و نوع داده‌های افشاشده است."
     )
 
@@ -57,23 +61,8 @@ async def email_prompt_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 def format_summary(email: str, result: BreachSummary) -> str:
-    lines = [f"🔐 گزارش نشت برای {html.escape(mask_email(email))}",
-             f"تعداد رکوردهای گزارش‌شده: {result.found}"]
-    if result.found == 0:
-        lines.append("در این منبع رکوردی پیدا نشد؛ این نتیجه نبودن نشت در منابع دیگر را تضمین نمی‌کند.")
-    if result.fields:
-        lines.append("نوع داده‌های در معرض نشت: " + html.escape(", ".join(result.fields)[:800]))
-    if result.sources:
-        lines.append("منابع گزارش‌شده:")
-        lines.extend(f"• {html.escape(name)} ({html.escape(date)})" for name, date in result.sources[:12])
-    if len(result.sources) > 12:
-        lines.append("برای کوتاه بودن پیام، حداکثر ۱۲ منبع نمایش داده شد.")
-    lines.extend([
-        "وجود نتیجه، هویت صاحب ایمیل یا وضعیت فعلی حساب را ثابت نمی‌کند.",
-        "برای ایمیل خودت، گذرواژه‌های تکراری را عوض کن و تأیید دومرحله‌ای را فعال کن.",
-        '<a href="https://leakcheck.io">Powered by LeakCheck</a>',
-    ])
-    return "\n".join(lines)
+    from app.services.email_report import render_html
+    return render_html(email, result)
 
 
 async def _lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, raw: str) -> bool:
@@ -89,14 +78,33 @@ async def _lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, raw: str) 
         await msg.reply_text("بین بررسی‌ها حداقل ۵ ثانیه فاصله بگذار.")
         return False
     context.user_data["breach_last_request"] = now
+    from io import BytesIO
+    from telegram.error import TelegramError
+    from app.services.credit_service import CreditService
+    from app.services.email_report import render_txt
+    charge_id = CreditService.reserve(update.effective_user.id, "email")
+    if not charge_id:
+        await msg.reply_text("اعتبار بررسی ایمیل ندارید یا بررسی قبلی هنوز در حال اجراست.\n"
+                             "از «خرید جست‌وجو» اعتبار یک بررسی ایمیل تهیه کنید: ۱۹۹٬۰۰۰ تومان.",
+                             reply_markup=account_keyboard())
+        return False
     service: LeakCheckPublic = context.bot_data["leakcheck_public"]
     try:
         result = await service.lookup_email(email)
+        await msg.reply_text(format_summary(email, result), parse_mode="HTML", disable_web_page_preview=True)
+        with BytesIO(render_txt(email, result).encode("utf-8")) as document:
+            await msg.reply_document(document=document, filename="email-security-report.txt",
+                                     caption="📄 گزارش امنیت ایمیل | ردپا — یک جست‌وجو انجام شد.")
+        CreditService.complete(charge_id)
+        return True
     except LeakCheckUnavailable:
-        await msg.reply_text("سرویس بررسی نشت اکنون در دسترس نیست؛ کمی بعد دوباره تلاش کن.")
+        await msg.reply_text("سرویس بررسی نشت اکنون در دسترس نیست؛ اعتبار این بررسی بازگردانده می‌شود.")
         return False
-    await msg.reply_text(format_summary(email, result), parse_mode="HTML", disable_web_page_preview=True)
-    return True
+    except TelegramError:
+        # Do not log token-bearing exceptions or retain the report on disk.
+        return False
+    finally:
+        CreditService.refund(charge_id)
 
 
 async def breach_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

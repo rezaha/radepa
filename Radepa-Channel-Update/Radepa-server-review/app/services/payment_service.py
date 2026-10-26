@@ -14,6 +14,7 @@ class PaymentService:
         plan = PlanRepo.get(plan_code)
         if not plan or not plan["is_active"]: return None
         order = OrderRepo.create(telegram_user_id, plan_code, plan["price_toman"])
+        if not order: return None
         logger.info("Order created: %s", order["order_id"])
         return order
 
@@ -21,15 +22,13 @@ class PaymentService:
     def submit_photo_evidence(order_id: str, file_id: str) -> bool:
         order = OrderRepo.get_by_order_id(order_id)
         if not order or order["status"] != "awaiting_payment": return False
-        OrderRepo.submit_evidence(order_id, "photo", file_id, None)
-        return True
+        return OrderRepo.submit_evidence(order_id, "photo", file_id, None)
 
     @staticmethod
     def submit_text_evidence(order_id: str, text: str) -> bool:
         order = OrderRepo.get_by_order_id(order_id)
         if not order or order["status"] != "awaiting_payment": return False
-        OrderRepo.submit_evidence(order_id, "text", None, text)
-        return True
+        return OrderRepo.submit_evidence(order_id, "text", None, text)
 
     @staticmethod
     def approve_order(order_id: str, admin_id: int, note: str = "") -> Optional[dict]:
@@ -54,14 +53,23 @@ class PaymentService:
                 if not plan or not user:
                     return None
                 now = now_utc()
-                current = from_iso(user["subscription_expire_at"]) if user["subscription_expire_at"] else now
-                expire_iso = add_days(max(now, current), plan["duration_days"]).isoformat()
                 stamp = now.isoformat()
                 conn.execute(
                     "UPDATE orders SET status='paid', reviewed_by_admin_id=?, "
                     "reviewed_at=?, admin_note=?, updated_at=? WHERE id=?",
                     (admin_id, stamp, note, stamp, order["id"]),
                 )
+                from app.services.products import PRODUCTS
+                product = PRODUCTS.get(order["plan_code"])
+                if product:
+                    column = product[0] + "_credits"
+                    conn.execute(f"UPDATE users SET {column}={column}+1 WHERE telegram_user_id=?",
+                                 (order["telegram_user_id"],))
+                    conn.commit()
+                    return {"user_telegram_id": order["telegram_user_id"], "credits": 1,
+                            "expire_iso": None, "order_id": order_id, "service_title": product[1]}
+                current = from_iso(user["subscription_expire_at"]) if user["subscription_expire_at"] else now
+                expire_iso = add_days(max(now, current), plan["duration_days"]).isoformat()
                 updated = conn.execute(
                     "UPDATE users SET credits=credits+?, subscription_expire_at=? "
                     "WHERE telegram_user_id=?",
@@ -71,7 +79,8 @@ class PaymentService:
                     raise sqlite3.IntegrityError("Missing user during grant")
                 conn.commit()
                 return {"user_telegram_id": order["telegram_user_id"],
-                        "credits": plan["credits"], "expire_iso": expire_iso, "order_id": order_id}
+                        "credits": plan["credits"], "expire_iso": expire_iso, "order_id": order_id,
+                        "service_title": plan["title"]}
         except sqlite3.Error as exc:
             logger.error("Payment approval failed for order %s (%s)", order_id, type(exc).__name__)
             return None
