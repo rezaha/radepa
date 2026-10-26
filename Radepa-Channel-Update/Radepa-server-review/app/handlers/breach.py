@@ -13,7 +13,7 @@ from app.utils.email_utils import normalize_email
 
 EMAIL_BUTTON = "📧 بررسی ایمیل"
 _MENU_TEXTS = {EMAIL_BUTTON, "🔍 تحلیل آیدی", "💳 خرید اشتراک", "👤 حساب من",
-               "📩 پشتیبانی", "⚙️ پنل ادمین", "📖 راهنمای استفاده", "💳 خرید جست‌وجو", "📢 کانال اطلاع‌رسانی"}
+               "🔎 تحلیل اینستاگرام", "🧾 سفارش‌های من", "📩 پشتیبانی", "⚙️ پنل ادمین", "📖 راهنمای استفاده", "💳 خرید جست‌وجو", "📢 کانال اطلاع‌رسانی"}
 _OTHER_INPUTS = ("awaiting_instagram_username", "awaiting_support_message",
                  "adm_await", "rejecting_order_id")
 

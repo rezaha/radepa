@@ -1,8 +1,10 @@
 from pathlib import Path
-import hashlib, json, os, shutil, sqlite3, subprocess, tempfile, time
+import argparse, hashlib, json, os, shutil, sqlite3, subprocess, tempfile, time
 
 live = Path('/opt/radepa')
-stage = Path('/tmp/radepa-update/radepa-codex-single-search-payments-20261026/Radepa-Channel-Update/Radepa-server-review')
+parser = argparse.ArgumentParser(description='Install the verified single-search release with backup and rollback.')
+parser.add_argument('--stage', default='/tmp/radepa-update/radepa-codex-single-search-payments-20261026/Radepa-Channel-Update/Radepa-server-review')
+stage = Path(parser.parse_args().stage).resolve()
 python = live / 'venv/bin/python'
 unit = 'radepa.service'
 assert os.geteuid() == 0, 'Run this installer as root'
@@ -35,8 +37,13 @@ def clear_cache():
         if path.is_dir() and not path.is_symlink():
             shutil.rmtree(path)
 
-assert fingerprint(live / 'app') == '28415ba362e72cc678f313b8d81c1402446c354de59cb3c8499c46f74d213b7d', 'Live source changed; aborting'
-assert fingerprint(stage / 'app') == 'dfefdd880ec9e1fa86caa3052ec54e015ee5b126d737e5731394989bfd09526b', 'Staged source incomplete or changed; aborting'
+current = fingerprint(live / 'app')
+expected = '029f5e1faa68781c203cb53406b787f6c0c647f869605d7082ff406d9251b044'
+assert fingerprint(stage / 'app') == expected, 'Staged source incomplete or changed; aborting'
+if current == expected:
+    print('ALREADY_CURRENT: source already matches this release. No changes made.')
+    raise SystemExit(0)
+assert current in {'28415ba362e72cc678f313b8d81c1402446c354de59cb3c8499c46f74d213b7d', 'dfefdd880ec9e1fa86caa3052ec54e015ee5b126d737e5731394989bfd09526b'}, 'Live source changed; aborting'
 pid = int(run(['systemctl', 'show', unit, '-p', 'MainPID', '--value']))
 assert pid > 0, 'Expected running service'
 # Reuse service environment internally. Never print credentials or environment values.

@@ -11,7 +11,7 @@ from app.services.payment_service import PaymentService
 from app.utils.logging_utils import setup_logging, get_logger
 
 from app.handlers.start import (start_handler, main_menu_callback, help_handler, analyze_shortcut_handler, account_shortcut_handler, plans_shortcut_handler, reply_keyboard_router, channel_command)
-from app.handlers.plans import show_plans_callback, buy_plan_callback
+from app.handlers.plans import show_plans_callback, buy_plan_callback, orders_handler
 from app.handlers.payments import (receive_evidence_handler, admin_approve_callback,
     admin_reject_callback, admin_reject_note_handler, admin_order_detail_callback, cancel_order_callback)
 from app.handlers.analysis import analyze_prompt_callback, receive_username_handler
@@ -56,9 +56,9 @@ async def _route_text(update, context):
         if ud.get("rejecting_order_id"):
             from app.handlers.payments import admin_reject_note_handler
             await admin_reject_note_handler(update, context); return
-        if ud.get("awaiting_support_message"):
-            await receive_support_message(update, context);
-            return
+    if ud.get("awaiting_support_message"):
+        await receive_support_message(update, context)
+        return
     if ud.get("awaiting_instagram_username"):
         await receive_username_handler(update, context); return
     from app.db.repos import OrderRepo
@@ -106,6 +106,8 @@ def main():
     app.add_handler(CommandHandler("analyze", analyze_shortcut_handler))
     app.add_handler(CommandHandler("account", account_shortcut_handler))
     app.add_handler(CommandHandler("plans",   plans_shortcut_handler))
+    app.add_handler(CommandHandler("orders", orders_handler))
+    app.add_handler(CallbackQueryHandler(orders_handler, pattern="^orders:"))
     app.add_handler(CallbackQueryHandler(support_prompt_callback, pattern="^menu:support$"))
     app.add_handler(CommandHandler("admin", admin_command))
     app.add_handler(CommandHandler("stats", stats_command))

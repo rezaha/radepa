@@ -1,7 +1,8 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from app.db.repos import UserRepo
 from app.handlers.breach import EMAIL_BUTTON, email_prompt
-from app.utils.keyboards import main_menu_keyboard, back_to_main_keyboard
+from app.utils.keyboards import main_menu_keyboard, back_to_main_keyboard, INSTAGRAM_BUTTON, ORDERS_BUTTON
+from app.handlers.plans import orders_handler
 from app.handlers.account import account_text
 
 HELP_BUTTON = "📖 راهنمای استفاده"
@@ -13,7 +14,8 @@ HELP_TEXT = """📖 راهنمای استفاده از ردپا
 📧 یک بررسی ایمیل: ۱۹۹٬۰۰۰ تومان
 🔎 یک تحلیل اینستاگرام: ۲۹۹٬۰۰۰ تومان
 ۲. مبلغ سفارش را واریز کنید و عکس رسید یا شناسه تراکنش را در همین گفت‌وگو بفرستید. پس از تأیید ادمین، اعتبار همان سرویس فعال می‌شود.
-۳. برای ایمیل، «بررسی ایمیل» یا /email name@example.com را بزنید. برای اینستاگرام، «تحلیل آیدی» یا /analyze را بزنید و یک آیدی مثل example_user بفرستید.
+برای ادامه پرداخت، لغو سفارش پرداخت‌نشده یا پیگیری رسید، «سفارش‌های من» یا /orders را بزنید.
+۳. برای ایمیل، «بررسی ایمیل» یا /email name@example.com را بزنید. برای اینستاگرام، «تحلیل اینستاگرام» یا /analyze را بزنید و یک آیدی مثل example_user بفرستید.
 ۴. گزارش ایمیل در تلگرام و فایل TXT ارسال می‌شود. نتایج اینستاگرام بخش‌های خلاصه، لینک‌ها و قطعه‌متن‌ها دارند.
 
 💎 اعتبارها جدا و بدون انقضای زمانی‌اند. هر پاسخ موفق حتی بدون نتیجه، یک اعتبار مصرف می‌کند. خطای سرویس اعتبار را بازمی‌گرداند. اعتبارهای قدیمی اینستاگرام شرایط قبلی خود را دارند.
@@ -24,6 +26,7 @@ HELP_TEXT = """📖 راهنمای استفاده از ردپا
 دستورات:
 /start — منوی اصلی
 /plans — خرید جست‌وجو
+/orders — پیگیری سفارش و ادامه پرداخت
 /account — موجودی اعتبار
 /email — بررسی یک ایمیل
 /breach — همان بررسی ایمیل
@@ -35,8 +38,8 @@ HELP_TEXT = """📖 راهنمای استفاده از ردپا
 
 def _persistent_keyboard(user_id=0):
     from app.config import config
-    rows = [["🔍 تحلیل آیدی", BUY_BUTTON], [EMAIL_BUTTON, "👤 حساب من"],
-            [HELP_BUTTON, "📩 پشتیبانی"], ["📢 کانال اطلاع‌رسانی"]]
+    rows = [[EMAIL_BUTTON, INSTAGRAM_BUTTON], [BUY_BUTTON, ORDERS_BUTTON],
+            ["👤 حساب من", HELP_BUTTON], ["📩 پشتیبانی", "📢 کانال اطلاع‌رسانی"]]
     if user_id in config.admin_ids:
         rows.append(["⚙️ پنل ادمین"])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
@@ -115,6 +118,7 @@ async def reply_keyboard_router(update, context):
         return False
     text = update.message.text.strip()
     routes = {EMAIL_BUTTON: email_prompt, "🔍 تحلیل آیدی": analyze_shortcut_handler,
+              INSTAGRAM_BUTTON: analyze_shortcut_handler, ORDERS_BUTTON: orders_handler,
               BUY_BUTTON: plans_shortcut_handler, "💳 خرید اشتراک": plans_shortcut_handler,
               "👤 حساب من": account_shortcut_handler, HELP_BUTTON: help_handler,
               "📢 کانال اطلاع‌رسانی": channel_command}

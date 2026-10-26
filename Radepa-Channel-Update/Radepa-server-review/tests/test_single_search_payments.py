@@ -278,12 +278,12 @@ class InterfaceTests(unittest.IsolatedAsyncioTestCase):
         await show_plans_callback(self.update, self.context)
         kwargs = self.query.edit_message_text.call_args.kwargs
         buttons = kwargs['reply_markup'].inline_keyboard
-        self.assertEqual({row[0].callback_data for row in buttons[:-1]},
+        self.assertEqual({row[0].callback_data for row in buttons if row[0].callback_data.startswith('buy:')},
                          {'buy:EMAIL_SINGLE', 'buy:INSTAGRAM_SINGLE'})
         await _send_plans(self.msg, self.context)
-        self.assertEqual(self.msg.reply_text.await_count, 2)
-        self.assertIn('199,000', self.msg.reply_text.call_args_list[0].args[0])
-        self.assertIn('299,000', self.msg.reply_text.call_args_list[1].args[0])
+        self.assertEqual(self.msg.reply_text.await_count, 1)
+        self.assertIn('199,000', self.msg.reply_text.call_args.args[0])
+        self.assertIn('299,000', self.msg.reply_text.call_args.args[0])
 
     async def test_checkout_identifies_product_and_exact_amount(self):
         from app.handlers.plans import buy_plan_callback

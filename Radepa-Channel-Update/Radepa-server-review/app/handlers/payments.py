@@ -46,8 +46,12 @@ async def _notify_admins(context, order: dict) -> None:
 async def receive_evidence_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     if not user: return
-    order = OrderRepo.get_latest_awaiting_payment(user.id)
+    selected = context.user_data.get("pending_order_id")
+    order = OrderRepo.get_by_order_id(selected) if selected else OrderRepo.get_latest_awaiting_payment(user.id)
     if not order: return
+    if order['telegram_user_id'] != user.id or order['status'] != 'awaiting_payment':
+        await update.effective_message.reply_text("این سفارش دیگر پذیرای رسید نیست؛ با /orders وضعیت سفارش را بررسی کنید.")
+        return
     order_id = order["order_id"]
     if update.message and update.message.photo:
         file_id = update.message.photo[-1].file_id

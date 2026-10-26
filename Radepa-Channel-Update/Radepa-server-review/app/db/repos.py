@@ -125,6 +125,36 @@ class PlanRepo:
 
 class OrderRepo:
     @staticmethod
+    def get_open(telegram_user_id: int) -> List[Row]:
+        with get_connection() as conn:
+            return _rows(conn.execute(
+                "SELECT * FROM orders WHERE telegram_user_id=? "
+                "AND status IN ('awaiting_payment','awaiting_review') ORDER BY id DESC",
+                (telegram_user_id,)).fetchall())
+
+    @staticmethod
+    def switch_unpaid(order_id: str, user_id: int, plan_code: str) -> Optional[Row]:
+        # Switching is an explicit user action, serialized with receipt submission.
+        with get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            old = conn.execute("SELECT * FROM orders WHERE order_id=? AND telegram_user_id=? "
+                               "AND status='awaiting_payment'", (order_id, user_id)).fetchone()
+            plan = conn.execute("SELECT * FROM plans WHERE plan_code=? AND is_active=1", (plan_code,)).fetchone()
+            if not old or not plan:
+                return None
+            if conn.execute("SELECT 1 FROM orders WHERE telegram_user_id=? AND id<>? "
+                            "AND status IN ('awaiting_payment','awaiting_review')", (user_id, old['id'])).fetchone():
+                return None
+            if old['plan_code'] == plan_code:
+                return dict(old)
+            stamp = now_iso()
+            conn.execute("UPDATE orders SET status='expired',updated_at=? WHERE id=?", (stamp, old['id']))
+            new_id = f"ORD-{uuid.uuid4().hex[:10].upper()}"
+            conn.execute("INSERT INTO orders (order_id,telegram_user_id,plan_code,amount_toman,created_at,updated_at) "
+                         "VALUES (?,?,?,?,?,?)", (new_id, user_id, plan_code, plan['price_toman'], stamp, stamp))
+            return _row(conn.execute("SELECT * FROM orders WHERE order_id=?", (new_id,)).fetchone())
+
+    @staticmethod
     def create(telegram_user_id: int, plan_code: str, amount_toman: int) -> Row:
         order_id = f"ORD-{uuid.uuid4().hex[:10].upper()}"
         ts = now_iso()
