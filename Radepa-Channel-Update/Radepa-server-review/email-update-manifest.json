@@ -1,0 +1,30 @@
+{
+  "app/main.py": {
+    "before": "04976236ac0184ae732d0faa7fda0a4b1216440ef540eb25ca4caaa3fb41448f",
+    "after": "cd0fb9939d7316b6897d139c661d455ce0ed0aa73c269539bbe8f89df940959e"
+  },
+  "app/handlers/breach.py": {
+    "before": "e24e3d0365985793c157fd0c0146b70153a6a6942061d9f41362656a0cf95d4d",
+    "after": "cce670617939e27ccd9de34c7620f7aac97953421cf46af47daa95d7c10ca49c"
+  },
+  "app/handlers/email_verify.py": {
+    "before": "8052d67ee440efe9958d8a8e53f6d08220da6ed8865634387a93acf9b70aa0b2",
+    "after": "7a6417f9892af319e463479de9212a47cbbdc5c6374389103c8a31178ac1d888"
+  },
+  "app/handlers/start.py": {
+    "before": "5d35b4ebda80cebf90b7e183c240ff14e44abd3fe283c98eae24a71032bb501d",
+    "after": "60ef8ad5fb9e686d521aa11648e39d9d19039a0498de1702f254fac4a84a26b4"
+  },
+  "app/utils/keyboards.py": {
+    "before": "bc020c65330c6fbb00108462c65db1384c7e76d00d90bdf7f5a1cffb09a0b689",
+    "after": "2f78c7cdfc939c5679156765342459e0f9d918b0f992ebf4ab81d2364eb4c631"
+  },
+  "app/services/leakcheck_public.py": {
+    "before": "e99bb3595e563dad857555b0a55575ed6c32ae418bd75e1837c1784a60adeed7",
+    "after": "79edc317a32941104241546fed55a1587750e3922951fd44a293f34cfa9c5aa7"
+  },
+  "app/utils/email_utils.py": {
+    "before": null,
+    "after": "7c7c9858535f473a4db4873a8f102e73e00d3deda04045193308aa05d6cc834a"
+  }
+}

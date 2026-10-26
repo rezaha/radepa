@@ -1,0 +1,18 @@
+{
+  "app/main.py": {
+    "before": "cd0fb9939d7316b6897d139c661d455ce0ed0aa73c269539bbe8f89df940959e",
+    "after": "b6cd156d27599bbc7dac4ee97cc9095fbc02f1e6d0a2054033d014bc1d01ee8f"
+  },
+  "app/handlers/start.py": {
+    "before": "60ef8ad5fb9e686d521aa11648e39d9d19039a0498de1702f254fac4a84a26b4",
+    "after": "7f6b3df91ca925b16b37d1676824fd09108c2c76090c0bed30869eac88811f39"
+  },
+  "app/utils/keyboards.py": {
+    "before": "2f78c7cdfc939c5679156765342459e0f9d918b0f992ebf4ab81d2364eb4c631",
+    "after": "3e89d6b6b7810c3988c1af106de09624231a55b2f3cbf9cfdd1fe300b357a320"
+  },
+  "app/handlers/channel_stats.py": {
+    "before": null,
+    "after": "ba76b4d54fbd1deb2beb7347a9d0adb32616f3fe0635a1189036fc7588891a42"
+  }
+}
