@@ -24,6 +24,7 @@ from app.handlers.analysis import analyze_prompt_callback, receive_username_hand
 from app.handlers.support import support_prompt_callback, receive_support_message
 from app.handlers.breach import breach_command, clear_pending_email, email_prompt_callback, receive_email
 from app.services.leakcheck_public import LeakCheckPublic
+from app.services.abstract_email import AbstractEmail
 from app.handlers.channel_stats import channel_stats_command
 logger = get_logger(__name__)
 
@@ -42,6 +43,7 @@ async def _on_error(update, context):
 
 async def _on_shutdown(application):
     await application.bot_data["leakcheck_public"].close()
+    await application.bot_data["abstract_email"].close()
 
 async def _route_text(update, context):
     if await reply_keyboard_router(update, context):
@@ -95,6 +97,7 @@ def main():
     app.bot_data["bot_name"] = config.bot_name
     app.bot_data["job_service"] = job_service
     app.bot_data["leakcheck_public"] = LeakCheckPublic()
+    app.bot_data["abstract_email"] = AbstractEmail(os.environ.get("ABSTRACT_API_KEY", "").strip())
     app.add_error_handler(_on_error)
     app.job_queue.run_repeating(_expire_orders_job, interval=timedelta(hours=1), first=timedelta(minutes=5))
 

@@ -50,7 +50,7 @@ async def email_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "📧 یک ایمیل بفرست تا خلاصه نشت‌های گزارش‌شده را بررسی کنم.\n"
         "هر بررسی یک اعتبار ایمیل مصرف می‌کند؛ قیمت: ۱۹۹٬۰۰۰ تومان.\n"
         "پاسخ موفق بدون نتیجه هم یک بررسی است؛ خطای سرویس اعتبار مصرف نمی‌کند.\n"
-        "نیازی به لینک تأیید نیست. خروجی شامل منابع نشت و نوع داده‌های افشاشده است."
+        "نیازی به لینک تأیید نیست. خروجی شامل منابع نشت، ریسک، کیفیت و قابلیت تحویل ایمیل است."
     )
 
 
@@ -90,7 +90,8 @@ async def _lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, raw: str) 
         return False
     service: LeakCheckPublic = context.bot_data["leakcheck_public"]
     try:
-        result = await service.lookup_email(email)
+        from app.services.email_lookup import lookup_email
+        result = await lookup_email(email, service, context.bot_data.get("abstract_email"))
         await msg.reply_text(format_summary(email, result), parse_mode="HTML", disable_web_page_preview=True)
         with BytesIO(render_txt(email, result).encode("utf-8")) as document:
             await msg.reply_document(document=document, filename="email-security-report.txt",
@@ -98,7 +99,7 @@ async def _lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, raw: str) 
         CreditService.complete(charge_id)
         return True
     except LeakCheckUnavailable:
-        await msg.reply_text("سرویس بررسی نشت اکنون در دسترس نیست؛ اعتبار این بررسی بازگردانده می‌شود.")
+        await msg.reply_text("هیچ‌کدام از سرویس‌های بررسی ایمیل اکنون در دسترس نیست؛ اعتبار این بررسی بازگردانده می‌شود.")
         return False
     except TelegramError:
         # Do not log token-bearing exceptions or retain the report on disk.

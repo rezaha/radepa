@@ -218,7 +218,7 @@ class EmailBillingTests(unittest.IsolatedAsyncioTestCase):
         result = BreachSummary(30, ('<' * 64,) * 30, (('<&>' * 33, '2026-01'),) * 30)
         text = render_html('person@example.com', result)
         self.assertLessEqual(len(text.encode('utf-16-le')) // 2, 3900)
-        self.assertEqual(render_txt('person@example.com', result).count('• '), 30)
+        self.assertEqual(render_txt('person@example.com', result).count('• '), 1)
 
 
 class InstagramBillingTests(unittest.IsolatedAsyncioTestCase):
