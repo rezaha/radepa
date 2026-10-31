@@ -25,6 +25,10 @@ class PaymentService:
         return OrderRepo.submit_evidence(order_id, "photo", file_id, None)
 
     @staticmethod
+    def submit_document_evidence(order_id: str, file_id: str) -> bool:
+        return OrderRepo.submit_evidence(order_id, "document", file_id, None)
+
+    @staticmethod
     def submit_text_evidence(order_id: str, text: str) -> bool:
         order = OrderRepo.get_by_order_id(order_id)
         if not order or order["status"] != "awaiting_payment": return False

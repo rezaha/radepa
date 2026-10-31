@@ -443,11 +443,8 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if not order:
             await q.edit_message_text("سفارش پیدا نشد.", reply_markup=_back())
             return
-        txt = _fmt_order(order)
-        if order.get("evidence_text"):
-            txt += f"\n💬 رسید: `{order['evidence_text']}`"
-        await q.edit_message_text(txt, parse_mode="Markdown",
-                                  reply_markup=_admin_review_kb(order_id))
+        from app.services.receipt_review import send_order_review
+        await send_order_review(context.bot, update.effective_user.id, order)
 
     else:
         await q.edit_message_text("گزینه ناشناخته.", reply_markup=_back())
@@ -751,23 +748,17 @@ async def _show_pending_orders(update: Update, context: ContextTypes.DEFAULT_TYP
     if not orders:
         await q.edit_message_text("هیچ سفارش در انتظاری نیست! ✅", reply_markup=_back())
         return
-    for o in orders:
-        txt = _fmt_order(o)
-        if o.get("evidence_text"):
-            txt += f"\n💬 رسید: `{o['evidence_text']}`"
+    from app.services.receipt_review import send_order_review
+    sent = 0
+    for order in orders:
         try:
-            await context.bot.send_message(
-                chat_id=update.effective_user.id,
-                text=txt,
-                parse_mode="Markdown",
-                reply_markup=_admin_review_kb(o["order_id"]),
-            )
-        except Exception as e:
-            logger.warning("Could not send order %s: %s", o.get("order_id"), e)
+            await send_order_review(context.bot, update.effective_user.id, order)
+            sent += 1
+        except Exception as exc:
+            logger.warning("Receipt delivery failed for order %s (%s)", order.get("order_id"), type(exc).__name__)
     await q.edit_message_text(
-        f"📋 *{len(orders)} سفارش* ارسال شد.",
-        parse_mode="Markdown",
-        reply_markup=_back()
+        f"📋 {sent} سفارش از {len(orders)} سفارش ارسال شد.",
+        reply_markup=_back(),
     )
 
 

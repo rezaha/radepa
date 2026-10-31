@@ -136,7 +136,7 @@ def main():
     # Consume direct email lookups before Instagram/payment routing.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receive_email), group=-1)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _route_text))
-    app.add_handler(MessageHandler(filters.PHOTO, receive_evidence_handler))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, receive_evidence_handler))
 
     logger.info("Bot starting — polling mode")
     app.run_polling(drop_pending_updates=True)
