@@ -26,6 +26,8 @@ HELP_TEXT = """📖 راهنمای استفاده از ردپا
 دستورات:
 /start — منوی اصلی
 /plans — خرید جست‌وجو
+ایمیل یا آیدی هدف و وضعیت جست‌وجو برای رسیدگی در تاریخچه حساب قابل مشاهده برای مدیر ثبت می‌شود.
+
 /orders — پیگیری سفارش و ادامه پرداخت
 /account — موجودی اعتبار
 /email — بررسی یک ایمیل
@@ -48,7 +50,7 @@ def _inline_main_menu():
     return main_menu_keyboard()
 
 def _clear_input(context):
-    for key in ("awaiting_breach_email", "awaiting_verify_email", "awaiting_instagram_username",
+    for key in ("rejecting_order_id", "adm_reject_order_id", "awaiting_breach_email", "awaiting_verify_email", "awaiting_instagram_username",
                 "awaiting_support_message", "adm_await", "rejecting_order_id"):
         context.user_data.pop(key, None)
 
@@ -112,6 +114,8 @@ async def main_menu_callback(update, context):
     if update.callback_query:
         await update.callback_query.answer()
         await update.callback_query.edit_message_text("منوی اصلی:", reply_markup=_inline_main_menu())
+    elif update.effective_message:
+        await update.effective_message.reply_text("عملیات ورودی لغو شد. منوی اصلی:", reply_markup=_inline_main_menu())
 
 async def reply_keyboard_router(update, context):
     if not update.message or not update.message.text:

@@ -50,7 +50,8 @@ async def email_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "📧 یک ایمیل بفرست تا خلاصه نشت‌های گزارش‌شده را بررسی کنم.\n"
         "هر بررسی یک اعتبار ایمیل مصرف می‌کند؛ قیمت: ۱۹۹٬۰۰۰ تومان.\n"
         "پاسخ موفق بدون نتیجه هم یک بررسی است؛ خطای سرویس اعتبار مصرف نمی‌کند.\n"
-        "نیازی به لینک تأیید نیست. خروجی شامل منابع نشت، ریسک، کیفیت و قابلیت تحویل ایمیل است."
+        "نیازی به لینک تأیید نیست. خروجی شامل منابع نشت، ریسک، کیفیت و قابلیت تحویل ایمیل است.\n"
+        "ایمیل هدف و وضعیت بررسی برای رسیدگی، در تاریخچه حساب قابل مشاهده برای مدیر ثبت می‌شود."
     )
 
 
@@ -89,13 +90,17 @@ async def _lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, raw: str) 
                              reply_markup=account_keyboard())
         return False
     service: LeakCheckPublic = context.bot_data["leakcheck_public"]
+    history_id = None
+    from app.db.repos import SearchHistoryRepo
     try:
+        history_id = SearchHistoryRepo.start_email(update.effective_user.id, email)
         from app.services.email_lookup import lookup_email
         result = await lookup_email(email, service, context.bot_data.get("abstract_email"))
         await msg.reply_text(format_summary(email, result), parse_mode="HTML", disable_web_page_preview=True)
         with BytesIO(render_txt(email, result).encode("utf-8")) as document:
             await msg.reply_document(document=document, filename="email-security-report.txt",
                                      caption="📄 گزارش امنیت ایمیل | ردپا — یک جست‌وجو انجام شد.")
+        SearchHistoryRepo.finish_email(history_id, "done")
         CreditService.complete(charge_id)
         return True
     except LeakCheckUnavailable:
@@ -106,6 +111,8 @@ async def _lookup(update: Update, context: ContextTypes.DEFAULT_TYPE, raw: str) 
         return False
     finally:
         CreditService.refund(charge_id)
+        if history_id is not None:
+            SearchHistoryRepo.finish_email(history_id, "failed")
 
 
 async def breach_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

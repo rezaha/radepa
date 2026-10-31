@@ -182,7 +182,7 @@ def _admin_user_actions(tid: int, is_blocked: bool) -> InlineKeyboardMarkup:
          InlineKeyboardButton("💎 افزودن اعتبار",    callback_data=f"adm_addcredits:{tid}")],
         [InlineKeyboardButton("🎁 اشتراک رایگان",    callback_data=f"adm_free_plan:{tid}"),
          InlineKeyboardButton("📋 سفارشات",          callback_data=f"adm_orders:{tid}")],
-        [InlineKeyboardButton("🔍 تحلیل‌های او",     callback_data=f"adm_jobs:{tid}"),
+        [InlineKeyboardButton("🕘 تاریخچه جست‌وجو",     callback_data=f"adm_jobs:{tid}"),
          InlineKeyboardButton(block_text,             callback_data=block_cb)],
         [InlineKeyboardButton("🗑 حذف کامل کاربر",   callback_data=f"adm_delete:{tid}")],
         [InlineKeyboardButton("◀️ برگشت",             callback_data="adm:users_menu")],
@@ -421,21 +421,21 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await _show_user_orders(update, context, tid)
 
     elif data.startswith("adm_jobs:"):
-        tid = int(data.split(":", 1)[1])
-        await _show_user_jobs(update, context, tid)
+        parts = data.split(":")
+        try:
+            tid = int(parts[1])
+            page = max(0, int(parts[2])) if len(parts) > 2 else 0
+        except ValueError:
+            return
+        await _show_user_jobs(update, context, tid, page)
 
     elif data.startswith("adm_approve:"):
         order_id = data.split(":", 1)[1]
         await _approve_order(update, context, order_id)
 
     elif data.startswith("adm_reject:"):
-        order_id = data.split(":", 1)[1]
-        context.user_data["adm_await"]           = "reject_note"
-        context.user_data["adm_reject_order_id"] = order_id
-        await q.edit_message_text(
-            f"❌ دلیل رد سفارش `{order_id}` رو بنویس:\n(یا `skip` بزن)",
-            parse_mode="Markdown"
-        )
+        from app.handlers.payments import admin_reject_callback
+        await admin_reject_callback(update, context)
 
     elif data.startswith("adm_odetail:"):
         order_id = data.split(":", 1)[1]
@@ -722,24 +722,31 @@ async def _show_user_orders(update: Update, context: ContextTypes.DEFAULT_TYPE,
     )
 
 
-async def _show_user_jobs(update: Update, context: ContextTypes.DEFAULT_TYPE,
-                           tid: int) -> None:
-    q    = update.callback_query
-    jobs = JobRepo.list_by_user(tid) if hasattr(JobRepo, "list_by_user") else []
-    if not jobs:
-        await q.edit_message_text("تاریخچه تحلیلی نداره.", reply_markup=_back())
-        return
-    lines = []
-    for j in jobs:
-        lines.append(
-            f"🔍 `{j.get('target_instagram_username','?')}` — {j.get('status','?')}\n"
-            f"   {(j.get('created_at') or '')[:16]} | {j.get('result_summary','')}"
-        )
-    await q.edit_message_text(
-        f"🔍 *تحلیل‌های کاربر {tid}:*\n\n" + "\n\n".join(lines),
-        parse_mode="Markdown",
-        reply_markup=_back()
-    )
+async def _show_user_jobs(update, context, tid, page=0):
+    from app.db.repos import SearchHistoryRepo
+    rows = SearchHistoryRepo.page(tid, offset=page * 10)
+    lines = [f"🕘 تاریخچه جست‌وجوی کاربر {tid}", f"صفحه {page + 1}", ""]
+    for row in rows[:10]:
+        service = 'ایمیل' if row['service'] == 'email' else 'اینستاگرام'
+        status = {'done':'موفق', 'running':'در حال اجرا', 'failed':'ناموفق'}.get(row['status'],row['status'])
+        lines += [f"• {service}: {row['target'][:254]}", f"{row['created_at'][:19]} | {status}", ""]
+    if not rows:
+        lines.append("جست‌وجویی ثبت نشده است.")
+    lines.append("جست‌وجوهای ایمیل از زمان نصب این نسخه ثبت می‌شوند.")
+    keyboard = []
+    if page:
+        keyboard.append([InlineKeyboardButton("◀ قبلی", callback_data=f"adm_jobs:{tid}:{page-1}")])
+    if len(rows) > 10:
+        keyboard.append([InlineKeyboardButton("بعدی ▶", callback_data=f"adm_jobs:{tid}:{page+1}")])
+    keyboard.append([InlineKeyboardButton("بازگشت", callback_data="adm:main")])
+    text = "\n".join(lines)
+    # Plain text preserves email underscores and arbitrary legacy target characters.
+    for offset in range(0, len(text), 3500):
+        if offset == 0:
+            await update.callback_query.edit_message_text(text[offset:offset+3500], parse_mode=None,
+                                                          reply_markup=InlineKeyboardMarkup(keyboard))
+        else:
+            await update.callback_query.message.reply_text(text[offset:offset+3500], parse_mode=None)
 
 
 async def _show_pending_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -789,7 +796,7 @@ async def _approve_order(update: Update, context: ContextTypes.DEFAULT_TYPE,
         )
         return
     await q.edit_message_text(f"✅ سفارش `{order_id}` تأیید شد.", parse_mode="Markdown")
-    uid = result.get("telegram_user_id")
+    uid = result.get("user_telegram_id")
     if uid:
         try:
             await context.bot.send_message(
@@ -811,7 +818,7 @@ async def _do_reject_order(update: Update, context: ContextTypes.DEFAULT_TYPE,
         )
         return
     await update.message.reply_text(f"❌ سفارش `{order_id}` رد شد.", parse_mode="Markdown")
-    uid    = result.get("telegram_user_id")
+    uid    = result.get("user_telegram_id")
     reason = f"دلیل: {note}" if note else ""
     if uid:
         try:

@@ -77,3 +77,13 @@ CREATE TABLE IF NOT EXISTS search_charges (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_search_charge_running
 ON search_charges(telegram_user_id, service) WHERE status='reserved';
+
+CREATE TABLE IF NOT EXISTS email_searches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_user_id INTEGER NOT NULL,
+    target_email TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    FOREIGN KEY (telegram_user_id) REFERENCES users(telegram_user_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_email_searches_user ON email_searches(telegram_user_id, created_at);

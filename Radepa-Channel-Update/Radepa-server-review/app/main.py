@@ -13,7 +13,7 @@ from app.utils.logging_utils import setup_logging, get_logger
 from app.handlers.start import (start_handler, main_menu_callback, help_handler, analyze_shortcut_handler, account_shortcut_handler, plans_shortcut_handler, reply_keyboard_router, channel_command)
 from app.handlers.plans import show_plans_callback, buy_plan_callback, orders_handler
 from app.handlers.payments import (receive_evidence_handler, admin_approve_callback,
-    admin_reject_callback, admin_reject_note_handler, admin_order_detail_callback, cancel_order_callback)
+    admin_reject_callback, admin_reject_note_handler, admin_reject_reason_callback, admin_order_detail_callback, cancel_order_callback)
 from app.handlers.analysis import analyze_prompt_callback, receive_username_handler
 from app.handlers.account import account_callback
 from app.handlers.admin import (
@@ -53,11 +53,11 @@ async def _route_text(update, context):
     if not user: return
     ud = context.user_data
     if user.id in cfg.admin_ids:
+        if ud.get("rejecting_order_id"):
+            await admin_reject_note_handler(update, context)
+            return
         if await admin_text_handler(update, context):
             return
-        if ud.get("rejecting_order_id"):
-            from app.handlers.payments import admin_reject_note_handler
-            await admin_reject_note_handler(update, context); return
     if ud.get("awaiting_support_message"):
         await receive_support_message(update, context)
         return
@@ -105,6 +105,7 @@ def main():
     app.add_handler(CallbackQueryHandler(clear_pending_email), group=-2)
     app.add_handler(CommandHandler("start",   start_handler))
     app.add_handler(CommandHandler("help",    help_handler))
+    app.add_handler(CommandHandler("cancel", main_menu_callback))
     app.add_handler(CallbackQueryHandler(help_handler, pattern="^menu:help$"))
     app.add_handler(CommandHandler("analyze", analyze_shortcut_handler))
     app.add_handler(CommandHandler("account", account_shortcut_handler))
@@ -128,6 +129,7 @@ def main():
     app.add_handler(CallbackQueryHandler(account_callback,                pattern="^menu:account$"))
     app.add_handler(CallbackQueryHandler(cancel_order_callback,           pattern=r"^cancel_order:"))
     app.add_handler(CallbackQueryHandler(admin_approve_callback,          pattern=r"^admin_approve:"))
+    app.add_handler(CallbackQueryHandler(admin_reject_reason_callback, pattern=r"^admin_reject_reason:"))
     app.add_handler(CallbackQueryHandler(admin_reject_callback,           pattern=r"^admin_reject:"))
     app.add_handler(CallbackQueryHandler(admin_order_detail_callback,     pattern=r"^admin_order_detail:"))
     # ── پنل ادمین جدید ──

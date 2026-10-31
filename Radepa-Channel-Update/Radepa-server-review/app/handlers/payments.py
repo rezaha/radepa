@@ -1,5 +1,5 @@
 from __future__ import annotations
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from app.config import config
 from app.db.repos import OrderRepo, PlanRepo, UserRepo
@@ -97,29 +97,66 @@ async def admin_reject_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer(ADMIN_ONLY, show_alert=True); return
     await query.answer()
     order_id = (query.data or "").split(":", 1)[-1]
-    context.user_data["rejecting_order_id"] = order_id
-    await edit_review(query,
-        f"دلیل رد سفارش `{order_id}` رو بنویس:\n_(برای رد بدون دلیل: /skip)_",
-        parse_mode="Markdown")
-
-async def admin_reject_note_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    if not user or not _is_admin(user.id): return
-    order_id = context.user_data.get("rejecting_order_id")
-    if not order_id or not update.message or not update.message.text: return
-    del context.user_data["rejecting_order_id"]
-    note = "توضیحی ارائه نشده." if update.message.text.strip() == "/skip" else update.message.text.strip()
-    result = PaymentService.reject_order(order_id, user.id, note)
+    result = PaymentService.reject_order(order_id, user.id)
     if not result:
-        await update.message.reply_text(ORDER_ALREADY_PROCESSED); return
+        await edit_review(query, ORDER_ALREADY_PROCESSED)
+        return
+    for key in ('rejecting_order_id', 'adm_await', 'adm_reject_order_id', 'awaiting_support_message', 'awaiting_breach_email', 'awaiting_instagram_username'):
+        context.user_data.pop(key, None)
+    await edit_review(query, f"❌ سفارش {order_id} رد شد و از فهرست انتظار خارج شد.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📝 افزودن دلیل رد (اختیاری)", callback_data=f"admin_reject_reason:{order_id}")],
+            [InlineKeyboardButton("📋 سفارش‌های در انتظار", callback_data="adm:pending")]]))
     try:
-        await context.bot.send_message(
-            chat_id=result["user_telegram_id"],
-            text=PAYMENT_REJECTED.format(order_id=order_id, note=note),
-            parse_mode="Markdown", reply_markup=back_to_main_keyboard())
+        await context.bot.send_message(chat_id=result['user_telegram_id'],
+            text=f"❌ رسید سفارش {order_id} تأیید نشد. برای اصلاح با پشتیبانی تماس بگیرید.",
+            reply_markup=back_to_main_keyboard())
     except Exception as exc:
-        logger.error("Failed to notify user: %s", exc)
-    await update.message.reply_text(f"❌ سفارش `{order_id}` رد شد.", parse_mode="Markdown")
+        logger.warning("Reject notification failed (%s)", type(exc).__name__)
+
+
+async def admin_reject_reason_callback(update, context):
+    query, user = update.callback_query, update.effective_user
+    if not query:
+        return
+    if not user or not _is_admin(user.id):
+        await query.answer(ADMIN_ONLY, show_alert=True)
+        return
+    await query.answer()
+    order_id = (query.data or '').split(':', 1)[-1]
+    order = OrderRepo.get_by_order_id(order_id)
+    if not order or order['status'] != 'rejected' or order['reviewed_by_admin_id'] != user.id:
+        await edit_review(query, ORDER_ALREADY_PROCESSED)
+        return
+    context.user_data.pop('adm_await', None)
+    context.user_data['rejecting_order_id'] = order_id
+    await edit_review(query, f"سفارش {order_id} قبلاً رد شده است. دلیل اختیاری را بنویسید؛ /cancel برای لغو نوشتن دلیل.")
+
+
+async def admin_reject_note_handler(update, context):
+    user = update.effective_user
+    if not user or not _is_admin(user.id):
+        return
+    order_id = context.user_data.pop('rejecting_order_id', None)
+    context.user_data.pop('adm_await', None)
+    if not order_id or not update.message or not update.message.text:
+        return
+    note = update.message.text.strip()[:1000]
+    from app.db.database import get_connection
+    with get_connection() as conn:
+        changed = conn.execute("UPDATE orders SET admin_note=? WHERE order_id=? AND status='rejected' "
+                               "AND reviewed_by_admin_id=?", (note, order_id, user.id)).rowcount
+    if not changed:
+        await update.message.reply_text(ORDER_ALREADY_PROCESSED)
+        return
+    order = OrderRepo.get_by_order_id(order_id)
+    try:
+        await context.bot.send_message(chat_id=order['telegram_user_id'],
+            text=f"دلیل رد رسید سفارش {order_id}:\n{note}", parse_mode=None)
+    except Exception as exc:
+        logger.warning("Reject note notification failed (%s)", type(exc).__name__)
+    await update.message.reply_text("دلیل رد ثبت شد؛ سفارش همچنان ردشده است.")
+
 
 async def admin_order_detail_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query

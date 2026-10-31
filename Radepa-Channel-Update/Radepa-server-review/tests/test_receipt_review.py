@@ -92,10 +92,14 @@ class ReceiptReviewTests(unittest.IsolatedAsyncioTestCase):
         self.query.data = 'admin_reject:' + self.order['order_id']
         await payments.admin_reject_callback(self.update, self.context)
         self.query.edit_message_caption.assert_awaited_once()
+        self.assertEqual(OrderRepo.get_by_order_id(self.order['order_id'])['status'], 'rejected')
+        self.query.data = 'admin_reject_reason:' + self.order['order_id']
+        await payments.admin_reject_reason_callback(self.update, self.context)
         self.msg.text = 'receipt not readable'
         await payments.admin_reject_note_handler(self.update, self.context)
         self.assertEqual(OrderRepo.get_by_order_id(self.order['order_id'])['status'], 'rejected')
         self.assertEqual(UserRepo.get_by_telegram_id(123)['email_credits'], 0)
+        self.assertEqual(OrderRepo.get_by_order_id(self.order['order_id'])['admin_note'], 'receipt not readable')
 
     async def test_receipt_as_image_document_is_preserved_and_delivered(self):
         self.msg.document = SimpleNamespace(file_id='image-document-id', mime_type='image/png')

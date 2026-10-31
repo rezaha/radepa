@@ -307,3 +307,28 @@ class JobRepo:
     def count_total() -> int:
         with get_connection() as conn:
             return conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+
+
+class SearchHistoryRepo:
+    @staticmethod
+    def start_email(user_id, email):
+        with get_connection() as conn:
+            return conn.execute("INSERT INTO email_searches (telegram_user_id,target_email,created_at) VALUES (?,?,?)",
+                                (user_id, email, now_iso())).lastrowid
+
+    @staticmethod
+    def finish_email(search_id, status):
+        with get_connection() as conn:
+            conn.execute("UPDATE email_searches SET status=? WHERE id=? AND status='running'", (status, search_id))
+
+    @staticmethod
+    def page(user_id, offset=0, limit=11):
+        with get_connection() as conn:
+            return _rows(conn.execute("""
+                SELECT id,'instagram' AS service,target_instagram_username AS target,created_at,status
+                FROM jobs WHERE telegram_user_id=?
+                UNION ALL
+                SELECT id,'email' AS service,target_email AS target,created_at,status
+                FROM email_searches WHERE telegram_user_id=?
+                ORDER BY created_at DESC,id DESC,service LIMIT ? OFFSET ?
+            """, (user_id,user_id,limit,offset)).fetchall())
