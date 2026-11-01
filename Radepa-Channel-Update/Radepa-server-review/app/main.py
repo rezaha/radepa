@@ -118,7 +118,7 @@ def main():
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("channel", channel_command))
     app.add_handler(CommandHandler("channelstats", channel_stats_command))
-    app.add_handler(CommandHandler("instagram", instagram_inspect_command))
+    app.add_handler(CommandHandler("instagram", instagram_inspect_command, block=False))
     app.add_handler(CommandHandler("email", breach_command))
     app.add_handler(CommandHandler("verifyemail", breach_command))  # legacy alias; no email sent
     app.add_handler(CommandHandler("breach", breach_command))

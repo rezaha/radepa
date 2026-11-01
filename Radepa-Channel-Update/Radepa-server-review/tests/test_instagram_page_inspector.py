@@ -24,11 +24,16 @@ class InspectorTests(unittest.TestCase):
         self.assertFalse(
             names & {"fill", "click", "press", "type", "evaluate", "request"}
         )
-        self.assertNotIn("username", source.lower().replace("username_fields", ""))
+        function = next(node for node in tree.body if isinstance(node, ast.AsyncFunctionDef)
+                        and node.name == "inspect_recovery_page")
+        self.assertEqual(function.args.args, [])
+        self.assertEqual(function.args.kwonlyargs, [])
+        self.assertIsNone(function.args.vararg)
+        self.assertIsNone(function.args.kwarg)
 
     def test_command_registered(self):
         self.assertIn(
-            'CommandHandler("instagram", instagram_inspect_command)',
+            'CommandHandler("instagram", instagram_inspect_command, block=False)',
             MAIN.read_text(encoding="utf-8"),
         )
 

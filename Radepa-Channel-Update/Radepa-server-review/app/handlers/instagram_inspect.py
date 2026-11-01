@@ -20,13 +20,16 @@ async def instagram_inspect_command(
     if user.id not in config.admin_ids or update.effective_chat.type != "private":
         await message.reply_text("این دستور فقط برای مدیر در گفت‌وگوی خصوصی فعال است.")
         return
+    if context.args:
+        await message.reply_text("این دستور ورودی نمی‌پذیرد؛ فقط دسترسی به یک صفحه ثابت را بررسی می‌کند.")
+        return
     if _lock.locked():
         await message.reply_text("یک بررسی دیگر در حال اجراست.")
         return
     async with _lock:
         try:
             result = await asyncio.wait_for(inspect_recovery_page(), timeout=45)
-        except (Exception, asyncio.TimeoutError) as exc:
+        except Exception as exc:
             await message.reply_text(f"بررسی صفحه انجام نشد: {type(exc).__name__}")
             return
     await message.reply_text(
