@@ -25,6 +25,7 @@ from app.handlers.support import support_prompt_callback, receive_support_messag
 from app.handlers.breach import breach_command, clear_pending_email, email_prompt_callback, receive_email
 from app.services.leakcheck_public import LeakCheckPublic
 from app.handlers.channel_stats import channel_stats_command
+from app.handlers.instagram_inspect import instagram_inspect_command
 logger = get_logger(__name__)
 
 def _seed_plans():
@@ -107,6 +108,7 @@ def main():
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("channel", channel_command))
     app.add_handler(CommandHandler("channelstats", channel_stats_command))
+    app.add_handler(CommandHandler("instagram", instagram_inspect_command))
     app.add_handler(CommandHandler("email", breach_command))
     app.add_handler(CommandHandler("verifyemail", breach_command))  # legacy alias; no email sent
     app.add_handler(CommandHandler("breach", breach_command))
