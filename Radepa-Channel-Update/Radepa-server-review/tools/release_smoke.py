@@ -17,6 +17,10 @@ sys.path.insert(0, str(ROOT))
 
 
 def check(work, browser=False, tests=False):
+    work=work.resolve()
+    live=Path('/opt/radepa')
+    if work==live or work.is_relative_to(live) or live.is_relative_to(work):
+        raise ValueError('Smoke state must not overlap production')
     work.mkdir(parents=True, exist_ok=True)
     fake = {'BOT_TOKEN': '123456:offline-test-token', 'ADMIN_IDS': '999',
             'PAYMENT_CARD_NUMBER': 'test', 'PAYMENT_CARD_HOLDER': 'test',

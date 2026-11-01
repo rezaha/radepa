@@ -179,10 +179,19 @@ def restore(backup,live,state):
     # Service must be stopped. Do not restore SQLite automatically.
     for name in ('app','venv'):
         old=backup/('displaced-'+name)
-        if old.exists() or old.is_symlink():
-            current=live/name
-            if current.exists() or current.is_symlink():
-                shutil.move(str(current),str(backup/('failed-'+name+'-'+str(time.time_ns()))))
+        current=live/name
+        fallback=False
+        if old.is_symlink() and not old.exists():
+            fallback=True  # Original release directory was removed; use verified full snapshot.
+        elif not old.exists() and not old.is_symlink():
+            fallback=(name=='app' and fingerprint(current)!=state['old_app']) or (
+                name=='venv' and current.is_symlink() and current.resolve()==(Path(state['stage'])/'venv').resolve())
+            if not fallback:continue
+        if current.exists() or current.is_symlink():
+            shutil.move(str(current),str(backup/('failed-'+name+'-'+str(time.time_ns()))))
+        if fallback:
+            shutil.copytree(backup/name,current,symlinks=True)
+        else:
             shutil.move(str(old),str(current))
     for name in ('.env','requirements.txt'):shutil.copy2(backup/name,live/name)
     state['state']='rolled_back';save_state(backup,state)

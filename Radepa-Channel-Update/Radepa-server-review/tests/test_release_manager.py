@@ -205,3 +205,16 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(zone.key,'Asia/Tehran')
         finally:
             zoneinfo.reset_tzpath(original)
+
+    def test_rollback_can_use_verified_snapshot_if_displaced_files_were_lost(self):
+        with self.patches():
+            self.apply();backup=next((self.root/'backups').iterdir())
+            shutil.rmtree(backup/'displaced-app')
+            shutil.rmtree(backup/'displaced-venv')
+            manager.rollback(backup,self.live)
+        self.assertEqual((self.live/'app/main.py').read_text(),'old')
+        self.assertFalse((self.live/'venv').is_symlink())
+
+    def test_standalone_smoke_refuses_production_state_directory(self):
+        smoke=load('release_smoke')
+        with self.assertRaises(ValueError):smoke.check(Path('/opt/radepa/data'))
