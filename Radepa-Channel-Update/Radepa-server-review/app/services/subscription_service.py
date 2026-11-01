@@ -11,6 +11,7 @@ class SubscriptionService:
         user = UserRepo.get_by_telegram_id(telegram_user_id)
         if not user: return False, "no_credits"
         if user.get("is_blocked"): return False, "blocked"
+        if user.get("instagram_credits", 0) > 0: return True, "ok"
         if is_expired(user.get("subscription_expire_at")): return False, "expired"
         if user.get("credits", 0) <= 0: return False, "no_credits"
         return True, "ok"

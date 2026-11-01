@@ -125,10 +125,46 @@ class PlanRepo:
 
 class OrderRepo:
     @staticmethod
+    def get_open(telegram_user_id: int) -> List[Row]:
+        with get_connection() as conn:
+            return _rows(conn.execute(
+                "SELECT * FROM orders WHERE telegram_user_id=? "
+                "AND status IN ('awaiting_payment','awaiting_review') ORDER BY id DESC",
+                (telegram_user_id,)).fetchall())
+
+    @staticmethod
+    def switch_unpaid(order_id: str, user_id: int, plan_code: str) -> Optional[Row]:
+        # Switching is an explicit user action, serialized with receipt submission.
+        with get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            old = conn.execute("SELECT * FROM orders WHERE order_id=? AND telegram_user_id=? "
+                               "AND status='awaiting_payment'", (order_id, user_id)).fetchone()
+            plan = conn.execute("SELECT * FROM plans WHERE plan_code=? AND is_active=1", (plan_code,)).fetchone()
+            if not old or not plan:
+                return None
+            if conn.execute("SELECT 1 FROM orders WHERE telegram_user_id=? AND id<>? "
+                            "AND status IN ('awaiting_payment','awaiting_review')", (user_id, old['id'])).fetchone():
+                return None
+            if old['plan_code'] == plan_code:
+                return dict(old)
+            stamp = now_iso()
+            conn.execute("UPDATE orders SET status='expired',updated_at=? WHERE id=?", (stamp, old['id']))
+            new_id = f"ORD-{uuid.uuid4().hex[:10].upper()}"
+            conn.execute("INSERT INTO orders (order_id,telegram_user_id,plan_code,amount_toman,created_at,updated_at) "
+                         "VALUES (?,?,?,?,?,?)", (new_id, user_id, plan_code, plan['price_toman'], stamp, stamp))
+            return _row(conn.execute("SELECT * FROM orders WHERE order_id=?", (new_id,)).fetchone())
+
+    @staticmethod
     def create(telegram_user_id: int, plan_code: str, amount_toman: int) -> Row:
         order_id = f"ORD-{uuid.uuid4().hex[:10].upper()}"
         ts = now_iso()
         with get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            pending = conn.execute("SELECT * FROM orders WHERE telegram_user_id=? AND status IN ('awaiting_payment','awaiting_review') ORDER BY id DESC LIMIT 1", (telegram_user_id,)).fetchone()
+            if pending:
+                if pending["plan_code"] == plan_code and pending["status"] == "awaiting_payment":
+                    return dict(pending)
+                return None
             conn.execute(
                 """INSERT INTO orders (order_id,telegram_user_id,plan_code,amount_toman,
                    status,evidence_type,created_at,updated_at)
@@ -157,14 +193,15 @@ class OrderRepo:
                 (telegram_user_id,)).fetchone())
 
     @staticmethod
-    def submit_evidence(order_id, evidence_type, evidence_file_id, evidence_text) -> None:
+    def submit_evidence(order_id, evidence_type, evidence_file_id, evidence_text) -> bool:
         with get_connection() as conn:
-            conn.execute(
+            cur = conn.execute(
                 """UPDATE orders SET status='awaiting_review',evidence_type=?,
                    evidence_file_id=?,evidence_text=?,updated_at=?
                    WHERE order_id=? AND status='awaiting_payment'""",
                 (evidence_type, evidence_file_id, evidence_text, now_iso(), order_id))
             conn.commit()
+            return cur.rowcount == 1
 
     @staticmethod
     def approve(order_id: str, admin_id: int, note: str = "") -> bool:
@@ -250,7 +287,7 @@ class JobRepo:
     @staticmethod
     def fail(job_id: int) -> None:
         with get_connection() as conn:
-            conn.execute("UPDATE jobs SET status='failed' WHERE id=?", (job_id,))
+            conn.execute("UPDATE jobs SET status='failed', credits_charged=0 WHERE id=?", (job_id,))
             conn.commit()
 
     @staticmethod
@@ -270,3 +307,28 @@ class JobRepo:
     def count_total() -> int:
         with get_connection() as conn:
             return conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+
+
+class SearchHistoryRepo:
+    @staticmethod
+    def start_email(user_id, email):
+        with get_connection() as conn:
+            return conn.execute("INSERT INTO email_searches (telegram_user_id,target_email,created_at) VALUES (?,?,?)",
+                                (user_id, email, now_iso())).lastrowid
+
+    @staticmethod
+    def finish_email(search_id, status):
+        with get_connection() as conn:
+            conn.execute("UPDATE email_searches SET status=? WHERE id=? AND status='running'", (status, search_id))
+
+    @staticmethod
+    def page(user_id, offset=0, limit=11):
+        with get_connection() as conn:
+            return _rows(conn.execute("""
+                SELECT id,'instagram' AS service,target_instagram_username AS target,created_at,status
+                FROM jobs WHERE telegram_user_id=?
+                UNION ALL
+                SELECT id,'email' AS service,target_email AS target,created_at,status
+                FROM email_searches WHERE telegram_user_id=?
+                ORDER BY created_at DESC,id DESC,service LIMIT ? OFFSET ?
+            """, (user_id,user_id,limit,offset)).fetchall())

@@ -49,10 +49,10 @@ class LeakCheckPublic:
                 return BreachSummary(
                     found=found,
                     fields=tuple(x[:64] for x in fields if isinstance(x, str))[:30],
-                    sources=tuple((x.get("name", "")[:100], x.get("date", "")[:20])
+                    sources=tuple((x.get("name", "")[:100], (x.get("date") or "")[:20])
                                   for x in sources[:30] if isinstance(x, dict)
                                   and isinstance(x.get("name"), str)
-                                  and isinstance(x.get("date"), str)),
+                                  and (x.get("date") is None or isinstance(x.get("date"), str))),
                 )
             except (httpx.HTTPError, ValueError, TypeError) as exc:
                 # Do not log the URL: it contains the queried email address.

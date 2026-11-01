@@ -11,9 +11,9 @@ from app.services.payment_service import PaymentService
 from app.utils.logging_utils import setup_logging, get_logger
 
 from app.handlers.start import (start_handler, main_menu_callback, help_handler, analyze_shortcut_handler, account_shortcut_handler, plans_shortcut_handler, reply_keyboard_router, channel_command)
-from app.handlers.plans import show_plans_callback, buy_plan_callback
+from app.handlers.plans import show_plans_callback, buy_plan_callback, orders_handler
 from app.handlers.payments import (receive_evidence_handler, admin_approve_callback,
-    admin_reject_callback, admin_reject_note_handler, admin_order_detail_callback, cancel_order_callback)
+    admin_reject_callback, admin_reject_note_handler, admin_reject_reason_callback, admin_order_detail_callback, cancel_order_callback)
 from app.handlers.analysis import analyze_prompt_callback, receive_username_handler
 from app.handlers.account import account_callback
 from app.handlers.admin import (
@@ -24,12 +24,14 @@ from app.handlers.analysis import analyze_prompt_callback, receive_username_hand
 from app.handlers.support import support_prompt_callback, receive_support_message
 from app.handlers.breach import breach_command, clear_pending_email, email_prompt_callback, receive_email
 from app.services.leakcheck_public import LeakCheckPublic
+from app.services.abstract_email import AbstractEmail
 from app.handlers.channel_stats import channel_stats_command
 from app.handlers.instagram_inspect import instagram_inspect_command
 logger = get_logger(__name__)
 
 def _seed_plans():
-    PlanRepo.upsert("FULL_3X", "اشتراک کامل ۳ بار استفاده", 499_000, 3, 30, 1)
+    from app.services.products import seed_products
+    seed_products()
     logger.info("Plans seeded.")
 
 async def _expire_orders_job(context):
@@ -42,6 +44,7 @@ async def _on_error(update, context):
 
 async def _on_shutdown(application):
     await application.bot_data["leakcheck_public"].close()
+    await application.bot_data["abstract_email"].close()
 
 async def _route_text(update, context):
     if await reply_keyboard_router(update, context):
@@ -51,14 +54,14 @@ async def _route_text(update, context):
     if not user: return
     ud = context.user_data
     if user.id in cfg.admin_ids:
+        if ud.get("rejecting_order_id"):
+            await admin_reject_note_handler(update, context)
+            return
         if await admin_text_handler(update, context):
             return
-        if ud.get("rejecting_order_id"):
-            from app.handlers.payments import admin_reject_note_handler
-            await admin_reject_note_handler(update, context); return
-        if ud.get("awaiting_support_message"):
-            await receive_support_message(update, context);
-            return
+    if ud.get("awaiting_support_message"):
+        await receive_support_message(update, context)
+        return
     if ud.get("awaiting_instagram_username"):
         await receive_username_handler(update, context); return
     from app.db.repos import OrderRepo
@@ -71,6 +74,8 @@ def main():
     setup_logging(config.log_file, config.log_level)
     init_db(config.db_path)
     _seed_plans()
+    from app.services.credit_service import CreditService
+    CreditService.recover_interrupted()
     serper = SerperService()
     job_service = JobService(serper)
     # پروکسی فقط وقتی استفاده می‌شود که TELEGRAM_PROXY_URL در .env تنظیم شده باشد
@@ -93,6 +98,7 @@ def main():
     app.bot_data["bot_name"] = config.bot_name
     app.bot_data["job_service"] = job_service
     app.bot_data["leakcheck_public"] = LeakCheckPublic()
+    app.bot_data["abstract_email"] = AbstractEmail(os.environ.get("ABSTRACT_API_KEY", "").strip())
     app.add_error_handler(_on_error)
     app.job_queue.run_repeating(_expire_orders_job, interval=timedelta(hours=1), first=timedelta(minutes=5))
 
@@ -100,9 +106,13 @@ def main():
     app.add_handler(CallbackQueryHandler(clear_pending_email), group=-2)
     app.add_handler(CommandHandler("start",   start_handler))
     app.add_handler(CommandHandler("help",    help_handler))
+    app.add_handler(CommandHandler("cancel", main_menu_callback))
+    app.add_handler(CallbackQueryHandler(help_handler, pattern="^menu:help$"))
     app.add_handler(CommandHandler("analyze", analyze_shortcut_handler))
     app.add_handler(CommandHandler("account", account_shortcut_handler))
     app.add_handler(CommandHandler("plans",   plans_shortcut_handler))
+    app.add_handler(CommandHandler("orders", orders_handler))
+    app.add_handler(CallbackQueryHandler(orders_handler, pattern="^orders:"))
     app.add_handler(CallbackQueryHandler(support_prompt_callback, pattern="^menu:support$"))
     app.add_handler(CommandHandler("admin", admin_command))
     app.add_handler(CommandHandler("stats", stats_command))
@@ -121,6 +131,7 @@ def main():
     app.add_handler(CallbackQueryHandler(account_callback,                pattern="^menu:account$"))
     app.add_handler(CallbackQueryHandler(cancel_order_callback,           pattern=r"^cancel_order:"))
     app.add_handler(CallbackQueryHandler(admin_approve_callback,          pattern=r"^admin_approve:"))
+    app.add_handler(CallbackQueryHandler(admin_reject_reason_callback, pattern=r"^admin_reject_reason:"))
     app.add_handler(CallbackQueryHandler(admin_reject_callback,           pattern=r"^admin_reject:"))
     app.add_handler(CallbackQueryHandler(admin_order_detail_callback,     pattern=r"^admin_order_detail:"))
     # ── پنل ادمین جدید ──
@@ -129,7 +140,7 @@ def main():
     # Consume direct email lookups before Instagram/payment routing.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receive_email), group=-1)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _route_text))
-    app.add_handler(MessageHandler(filters.PHOTO, receive_evidence_handler))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, receive_evidence_handler))
 
     logger.info("Bot starting — polling mode")
     app.run_polling(drop_pending_updates=True)

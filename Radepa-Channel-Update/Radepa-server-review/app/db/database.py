@@ -14,6 +14,11 @@ def init_db(db_path: str) -> None:
     schema = schema_path.read_text(encoding="utf-8")
     with get_connection() as conn:
         conn.executescript(schema)
+        # Additive migration: retain all historical balances, plans and orders.
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+        for name in ("email_credits", "instagram_credits"):
+            if name not in columns:
+                conn.execute(f"ALTER TABLE users ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
     logger.info("Database initialised at %s", db_path)
 
 def get_connection() -> sqlite3.Connection:

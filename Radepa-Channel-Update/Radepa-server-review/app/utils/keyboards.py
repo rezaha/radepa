@@ -1,14 +1,19 @@
 from __future__ import annotations
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+INSTAGRAM_BUTTON = "🔎 تحلیل اینستاگرام"
+ORDERS_BUTTON = "🧾 سفارش‌های من"
+
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔍 تحلیل آیدی", callback_data="menu:analyze"),
-         InlineKeyboardButton("💳 خرید اشتراک", callback_data="menu:plans")],
+        [InlineKeyboardButton("📧 بررسی ایمیل", callback_data="menu:email"),
+         InlineKeyboardButton(INSTAGRAM_BUTTON, callback_data="menu:analyze")],
+        [InlineKeyboardButton("💳 خرید جست‌وجو", callback_data="menu:plans"),
+         InlineKeyboardButton(ORDERS_BUTTON, callback_data="orders:list")],
         [InlineKeyboardButton("👤 حساب من", callback_data="menu:account"),
-         InlineKeyboardButton("📩 ارتباط با ادمین", callback_data="menu:support")],
-        [InlineKeyboardButton("📧 بررسی ایمیل", callback_data="menu:email")],
-        [InlineKeyboardButton("📢 کانال اطلاع‌رسانی ردپا", url="https://t.me/Radepa_Updates")],
+         InlineKeyboardButton("📖 راهنمای استفاده", callback_data="menu:help")],
+        [InlineKeyboardButton("📩 پشتیبانی", callback_data="menu:support")],
+        [InlineKeyboardButton("📢 کانال اطلاع‌رسانی", url="https://t.me/Radepa_Updates")],
     ])
 
 def plan_buy_keyboard(plan_code: str) -> InlineKeyboardMarkup:
@@ -47,7 +52,7 @@ def admin_user_actions_keyboard(telegram_user_id: int, is_blocked: bool) -> Inli
 
 def account_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 خرید اشتراک", callback_data="menu:plans")],
+        [InlineKeyboardButton("💳 خرید جست‌وجو", callback_data="menu:plans")],
         [InlineKeyboardButton("🔙 بازگشت", callback_data="menu:main")],
     ])
 
