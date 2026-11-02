@@ -40,8 +40,12 @@ async def inspect_recovery_page() -> dict[str, object]:
             )
             if response is None:
                 return {"status": "no_response"}
+            if not response.ok:
+                # A denial/error page is not the recovery form. Counts from it
+                # would incorrectly turn an unavailable inspection into zeros.
+                return {"status": "http_error", "http_status": response.status}
             return {
-                "status": "ok" if response.ok else "http_error",
+                "status": "ok",
                 "http_status": response.status,
                 "username_fields": await page.get_by_role("textbox").count(),
                 "continue_buttons": await page.get_by_role(

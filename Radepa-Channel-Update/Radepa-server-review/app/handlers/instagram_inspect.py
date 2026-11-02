@@ -32,6 +32,23 @@ async def instagram_inspect_command(
         except Exception as exc:
             await message.reply_text(f"بررسی صفحه انجام نشد: {type(exc).__name__}")
             return
+    if result['status'] != 'ok':
+        http = result.get('http_status')
+        if http == 403:
+            explanation = "درخواست صفحه با HTTP 403 رد شد؛ علت دقیق از این پاسخ مشخص نیست."
+        elif http == 429:
+            explanation = "درخواست با HTTP 429 محدود شد؛ بررسی را پشت‌سرهم تکرار نکنید."
+        elif http is not None:
+            explanation = f"صفحه پاسخ ناموفق HTTP {http} داد."
+        else:
+            explanation = "پاسخ قابل بررسی از صفحه دریافت نشد."
+        await message.reply_text(
+            "بررسی صفحه بازیابی اینستاگرام انجام نشد.\n"
+            f"{explanation}\n"
+            "ساختار فرم قابل ارزیابی نیست؛ تعداد فیلدها و دکمه‌ها گزارش نمی‌شود.\n"
+            "این وضعیت نتیجه جست‌وجوی حساب یا نشانه نبود اطلاعات نیست؛ هیچ نام کاربری ارسال نشده است."
+        )
+        return
     await message.reply_text(
         "وضعیت صفحه بازیابی اینستاگرام (بدون ارسال نام کاربری):\n"
         f"وضعیت: {result['status']}\n"

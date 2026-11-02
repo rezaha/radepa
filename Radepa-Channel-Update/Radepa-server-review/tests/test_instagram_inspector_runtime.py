@@ -60,6 +60,36 @@ class HandlerTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(asyncio.CancelledError):await handler.instagram_inspect_command(self.update,self.context)
         self.assertFalse(handler._lock.locked())
 
+    async def test_denied_page_is_unavailable_not_zero_results(self):
+        result={'status':'http_error','http_status':403,'username_fields':0,'continue_buttons':0}
+        with patch.object(handler,'inspect_recovery_page',new_callable=AsyncMock,return_value=result):
+            await handler.instagram_inspect_command(self.update,self.context)
+        text=self.msg.reply_text.call_args.args[0]
+        self.assertIn('HTTP 403',text)
+        self.assertIn('علت دقیق',text)
+        self.assertIn('ساختار فرم قابل ارزیابی نیست',text)
+        self.assertNotIn('تعداد فیلدها: 0',text)
+        self.assertNotIn('دکمه ادامه: 0',text)
+
+    async def test_rate_limit_does_not_retry(self):
+        with patch.object(handler,'inspect_recovery_page',new_callable=AsyncMock,
+                          return_value={'status':'http_error','http_status':429}) as inspect:
+            await handler.instagram_inspect_command(self.update,self.context)
+        inspect.assert_awaited_once()
+        self.assertIn('HTTP 429',self.msg.reply_text.call_args.args[0])
+
+    async def test_no_response_does_not_show_form_counts(self):
+        with patch.object(handler,'inspect_recovery_page',new_callable=AsyncMock,return_value={'status':'no_response'}):
+            await handler.instagram_inspect_command(self.update,self.context)
+        self.assertIn('پاسخ قابل بررسی',self.msg.reply_text.call_args.args[0])
+        self.assertNotIn('تعداد فیلدها:',self.msg.reply_text.call_args.args[0])
+
+    async def test_success_still_displays_form_counts(self):
+        with patch.object(handler,'inspect_recovery_page',new_callable=AsyncMock,
+                          return_value={'status':'ok','http_status':200,'username_fields':1,'continue_buttons':1}):
+            await handler.instagram_inspect_command(self.update,self.context)
+        self.assertIn('تعداد فیلدها: 1',self.msg.reply_text.call_args.args[0])
+
 
 class ServiceTests(unittest.IsolatedAsyncioTestCase):
     async def check(self,response=None,error=None):
@@ -75,6 +105,8 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
                 result=None
             else:result=await service.inspect_recovery_page()
         browser.close.assert_awaited_once()
+        if response is not None and not response.ok:
+            page.get_by_role.assert_not_called()
         return result
 
     async def test_session_proxy_is_used_without_credentials_in_server_url(self):
@@ -86,7 +118,13 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(proxy['password'],'synthetic-secret')
 
     async def test_no_response(self):self.assertEqual(await self.check(),{'status':'no_response'})
-    async def test_http_failure(self):self.assertEqual((await self.check(SimpleNamespace(ok=False,status=403)))['status'],'http_error')
+    async def test_http_failure(self):
+        self.assertEqual(await self.check(SimpleNamespace(ok=False,status=403)),
+                         {'status':'http_error','http_status':403})
+
+    async def test_server_error_does_not_report_form_counts(self):
+        self.assertEqual(await self.check(SimpleNamespace(ok=False,status=503)),
+                         {'status':'http_error','http_status':503})
     async def test_navigation_failure_cleans_browser(self):await self.check(error=RuntimeError('navigation'))
     async def test_success(self):self.assertEqual((await self.check(SimpleNamespace(ok=True,status=200)))['http_status'],200)
 
@@ -96,7 +134,7 @@ class LocalBrowserTests(unittest.IsolatedAsyncioTestCase):
     async def test_real_browser_on_local_fixture(self):
         class Page(BaseHTTPRequestHandler):
             def do_GET(self):
-                self.send_response(200);self.end_headers()
+                self.send_response(403 if self.path == '/denied' else 200);self.end_headers()
                 self.wfile.write(b'<html><input aria-label="Account"><button>Continue</button></html>')
             def log_message(self,*args):pass
         server=ThreadingHTTPServer(('127.0.0.1',0),Page)
@@ -105,6 +143,9 @@ class LocalBrowserTests(unittest.IsolatedAsyncioTestCase):
             with patch.object(service,'RECOVERY_URL',f'http://127.0.0.1:{server.server_port}/'),patch.dict(os.environ,{'INSTAGRAM_INSPECT_BROWSER_PATH':shutil.which('chromium'),'HTTPS_PROXY':'','https_proxy':'','HTTP_PROXY':'','http_proxy':''}):
                 result=await service.inspect_recovery_page()
             self.assertEqual(result,{'status':'ok','http_status':200,'username_fields':1,'continue_buttons':1})
+            with patch.object(service,'RECOVERY_URL',f'http://127.0.0.1:{server.server_port}/denied'),patch.dict(os.environ,{'INSTAGRAM_INSPECT_BROWSER_PATH':shutil.which('chromium'),'HTTPS_PROXY':'','https_proxy':'','HTTP_PROXY':'','http_proxy':''}):
+                denied=await service.inspect_recovery_page()
+            self.assertEqual(denied,{'status':'http_error','http_status':403})
         finally:
             server.shutdown();server.server_close();thread.join()
 
