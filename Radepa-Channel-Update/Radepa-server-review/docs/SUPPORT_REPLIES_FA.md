@@ -46,4 +46,6 @@
 
 ## نصب جداگانه
 
+[راهنمای نصب‌کننده مخصوص پاسخ‌گویی](SUPPORT_INSTALL_FA.md) شامل Preflight فقط‌خواندنی، نصب با --apply، backup و rollback کد است. مرحله نصب بدون تأیید جداگانه اجرا نشود.
+
 تغییر اجرایی شامل app/handlers/support.py، app/db/support_repo.py، app/db/schema.sql و ثبت handlerها در app/main.py است. فقط یک فایل support.py را روی نسخه قدیمی کپی نکنید؛ بدون schema و routing جدید کامل کار نمی‌کند. init_db هنگام startup دو جدول را ایجاد می‌کند. برای نصب، بسته و staging تازه همراه backup و پذیرش لازم است؛ source یا venv stage فعال Production را درجا تغییر ندهید. نصب‌کننده‌های قدیمی و verifier pin‌شده ۱۳۵ تستی، ابزار انتشار خودکار این نسخه جدید نیستند.
