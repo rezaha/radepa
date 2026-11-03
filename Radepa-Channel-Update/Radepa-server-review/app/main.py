@@ -21,7 +21,8 @@ from app.handlers.admin import (
 )
 from telegram.request import HTTPXRequest
 from app.handlers.analysis import analyze_prompt_callback, receive_username_handler, result_view_callback
-from app.handlers.support import support_prompt_callback, receive_support_message
+from app.handlers.support import (support_prompt_callback, receive_support_message,
+    support_reply_callback, support_reply_command, support_reply_router)
 from app.handlers.breach import breach_command, clear_pending_email, email_prompt_callback, receive_email
 from app.services.leakcheck_public import LeakCheckPublic
 from app.services.abstract_email import AbstractEmail
@@ -102,6 +103,8 @@ def main():
     app.add_error_handler(_on_error)
     app.job_queue.run_repeating(_expire_orders_job, interval=timedelta(hours=1), first=timedelta(minutes=5))
 
+    app.add_handler(MessageHandler(filters.REPLY & filters.ChatType.PRIVATE & ~filters.COMMAND,
+                                   support_reply_router), group=-3)
     app.add_handler(MessageHandler(filters.COMMAND, clear_pending_email), group=-2)
     app.add_handler(CallbackQueryHandler(clear_pending_email), group=-2)
     app.add_handler(CommandHandler("start",   start_handler))
@@ -114,6 +117,8 @@ def main():
     app.add_handler(CommandHandler("orders", orders_handler))
     app.add_handler(CallbackQueryHandler(orders_handler, pattern="^orders:"))
     app.add_handler(CallbackQueryHandler(support_prompt_callback, pattern="^menu:support$"))
+    app.add_handler(CallbackQueryHandler(support_reply_callback, pattern=r"^support:reply:[0-9a-f]{32}$"))
+    app.add_handler(CommandHandler(["reply", "supportreply"], support_reply_command))
     app.add_handler(CommandHandler("admin", admin_command))
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("channel", channel_command))
