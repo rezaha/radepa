@@ -28,6 +28,7 @@ from app.services.leakcheck_public import LeakCheckPublic
 from app.services.abstract_email import AbstractEmail
 from app.handlers.channel_stats import channel_stats_command
 from app.handlers.instagram_inspect import instagram_inspect_command
+from app.services.telegram_menu import configure_application_menu
 logger = get_logger(__name__)
 
 def _seed_plans():
@@ -83,6 +84,7 @@ def main():
     # (ویندوز/لوکال: TELEGRAM_PROXY_URL=socks5://127.0.0.1:10808 ـ سرور آلمان: خالی)
     proxy_url = os.environ.get("TELEGRAM_PROXY_URL", "").strip()
     builder = (Application.builder().token(config.bot_token)
+               .post_init(configure_application_menu)
                .post_shutdown(_on_shutdown))
     if proxy_url:
         try:

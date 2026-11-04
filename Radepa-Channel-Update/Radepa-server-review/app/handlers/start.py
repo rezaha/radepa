@@ -4,6 +4,7 @@ from app.handlers.breach import EMAIL_BUTTON, email_prompt
 from app.utils.keyboards import main_menu_keyboard, back_to_main_keyboard, INSTAGRAM_BUTTON, ORDERS_BUTTON
 from app.handlers.plans import orders_handler
 from app.handlers.account import account_text
+from app.services.telegram_menu import ensure_private_menu
 
 HELP_BUTTON = "📖 راهنمای استفاده"
 BUY_BUTTON = "💳 خرید جست‌وجو"
@@ -66,6 +67,8 @@ async def start_handler(update, context):
     if account.get("is_blocked"):
         await update.message.reply_text("حساب شما غیرفعال است؛ با پشتیبانی تماس بگیرید.")
         return
+    from app.config import config
+    await ensure_private_menu(context.bot, context.bot_data, user.id, user.id in config.admin_ids)
     await update.message.reply_text(
         f"سلام {user.first_name or 'دوست عزیز'}! 👋\n\nبه ردپا خوش آمدید.\n"
         "📧 بررسی خلاصه نشت یک ایمیل: ۱۹۹٬۰۰۰ تومان\n"

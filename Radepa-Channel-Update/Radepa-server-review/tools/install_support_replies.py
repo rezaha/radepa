@@ -15,6 +15,7 @@ UNIT = 'radepa.service'
 EXPECTED = '1ede48f63866949e8e65c96082f1797b6fb38e84f266c8a68aa26f7fe50b7e85'
 BASELINES = {'de56f1a58dba35493a6acc459fc584997dfbdbfc7723f0ae44bde157c8a1b86f'}
 KIND = 'support-replies-app-only'
+FEATURE_LABEL = 'support reply'
 
 
 def requirements(path):
@@ -146,7 +147,7 @@ def deploy(stage, apply=False, live=LIVE, backup_root=Path('/root/radepa-backups
         start()
         state['state'] = 'installed'
         runtime.save_state(backup, state)
-        print('INSTALL_OK: support reply code is active; verify delivery in Telegram.')
+        print(f'INSTALL_OK: {FEATURE_LABEL} code is active; verify behavior in Telegram.')
     except BaseException:
         stop()
         if state['state'] == 'installing':
@@ -178,7 +179,7 @@ def rollback(backup, live=LIVE):
     print('ROLLBACK_OK: previous app active; live database, venv and settings retained.')
 
 
-if __name__ == '__main__':
+def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -198,3 +199,7 @@ if __name__ == '__main__':
                 deploy(args.stage.resolve(), True)
     else:
         deploy(args.stage.resolve())
+
+
+if __name__ == '__main__':
+    main()

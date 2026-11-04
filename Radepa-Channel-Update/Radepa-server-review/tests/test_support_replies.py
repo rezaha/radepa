@@ -228,6 +228,10 @@ class SupportReplyTests(unittest.IsolatedAsyncioTestCase):
             main.main()
         application=polling.call_args.args[0]
         try:
+            from app.services.telegram_menu import configure_application_menu, ADMIN_COMMANDS
+            self.assertIs(application.post_init,configure_application_menu)
+            registered=set().union(*(h.commands for h in application.handlers[0] if hasattr(h,'commands')))
+            self.assertTrue({c.command for c in ADMIN_COMMANDS} <= registered)
             handler=application.handlers[-3][0]
             self.assertIs(handler.callback,support.support_reply_router)
             self.assertIn(-1,application.handlers)
