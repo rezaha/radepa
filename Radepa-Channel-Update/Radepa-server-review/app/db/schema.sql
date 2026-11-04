@@ -64,3 +64,43 @@ CREATE TABLE IF NOT EXISTS job_sources (
     query_pattern TEXT,
     FOREIGN KEY (job_id) REFERENCES jobs(id)
 );
+
+-- Reservations track credit origin so refunds cannot cross products or repeat.
+CREATE TABLE IF NOT EXISTS search_charges (
+    id TEXT PRIMARY KEY,
+    telegram_user_id INTEGER NOT NULL,
+    service TEXT NOT NULL CHECK (service IN ('email', 'instagram')),
+    balance_column TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'reserved',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (telegram_user_id) REFERENCES users(telegram_user_id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_search_charge_running
+ON search_charges(telegram_user_id, service) WHERE status='reserved';
+
+CREATE TABLE IF NOT EXISTS email_searches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_user_id INTEGER NOT NULL,
+    target_email TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    FOREIGN KEY (telegram_user_id) REFERENCES users(telegram_user_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_email_searches_user ON email_searches(telegram_user_id, created_at);
+
+-- Recipient links survive restart; never infer recipients from quoted message text.
+CREATE TABLE IF NOT EXISTS support_tickets (
+    id TEXT PRIMARY KEY,
+    telegram_user_id INTEGER NOT NULL,
+    user_message_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (telegram_user_id) REFERENCES users(telegram_user_id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS support_deliveries (
+    admin_chat_id INTEGER NOT NULL,
+    admin_message_id INTEGER NOT NULL,
+    ticket_id TEXT NOT NULL,
+    PRIMARY KEY (admin_chat_id, admin_message_id),
+    FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_support_deliveries_ticket ON support_deliveries(ticket_id);

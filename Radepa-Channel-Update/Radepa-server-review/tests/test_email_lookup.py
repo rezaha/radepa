@@ -28,7 +28,11 @@ class HandlerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         init_db(str(Path(self.temp.name) / "test.db"))
-        self.msg = SimpleNamespace(chat=SimpleNamespace(type="private"),
+        UserRepo.upsert(123, "test", "test")
+        from app.db.database import get_connection
+        with get_connection() as conn:
+            conn.execute("UPDATE users SET email_credits=5 WHERE telegram_user_id=123")
+        self.msg = SimpleNamespace(reply_document=AsyncMock(), chat=SimpleNamespace(type="private"),
                                    text="person@example.com", reply_text=AsyncMock())
         self.update = SimpleNamespace(effective_message=self.msg,
                                       effective_user=SimpleNamespace(id=123), callback_query=None)
