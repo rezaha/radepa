@@ -16,6 +16,7 @@ EXPECTED = '1ede48f63866949e8e65c96082f1797b6fb38e84f266c8a68aa26f7fe50b7e85'
 BASELINES = {'de56f1a58dba35493a6acc459fc584997dfbdbfc7723f0ae44bde157c8a1b86f'}
 KIND = 'support-replies-app-only'
 FEATURE_LABEL = 'support reply'
+RECOVERY_TOOLS = ('install_support_replies.py', 'release_manager.py')
 
 
 def requirements(path):
@@ -119,7 +120,7 @@ def deploy(stage, apply=False, live=LIVE, backup_root=Path('/root/radepa-backups
     print('BACKUP:', backup, flush=True)
     # Save the exact recovery tools alongside the backup for later rollback.
     (backup / 'tools').mkdir()
-    for name in ('install_support_replies.py', 'release_manager.py'):
+    for name in RECOVERY_TOOLS:
         shutil.copy2(Path(__file__).with_name(name), backup / 'tools' / name)
     source = backup / 'new-source'
     source.mkdir()
