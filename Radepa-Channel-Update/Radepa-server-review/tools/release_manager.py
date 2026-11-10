@@ -59,7 +59,7 @@ def verify(source):
     if manifest.get('format') != 1 or not manifest.get('files'): raise ValueError('Invalid manifest')
     for name, expected in manifest['files'].items():
         relative = Path(name)
-        if relative.is_absolute() or '..' in relative.parts or (relative.parts[0] not in ('app','tests','tools','docs','release','requirements.txt') and not (len(relative.parts)==1 and relative.suffix=='.md')):
+        if relative.is_absolute() or '..' in relative.parts or (relative.parts[0] not in ('app','tests','tools','docs','release','requirements.txt','requirements-sherlock.txt') and not (len(relative.parts)==1 and relative.suffix=='.md')):
             raise ValueError('Unsafe manifest path')
         path = source/relative
         if path.resolve() != path.absolute() or not path.is_file() or digest(path) != expected:

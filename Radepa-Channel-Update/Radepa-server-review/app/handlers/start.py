@@ -5,6 +5,8 @@ from app.utils.keyboards import main_menu_keyboard, back_to_main_keyboard, INSTA
 from app.handlers.plans import orders_handler
 from app.handlers.account import account_text
 from app.services.telegram_menu import ensure_private_menu
+from app.handlers.sherlock import sherlock_prompt
+from app.utils.keyboards import SHERLOCK_BUTTON
 
 HELP_BUTTON = "📖 راهنمای استفاده"
 BUY_BUTTON = "💳 خرید جست‌وجو"
@@ -34,6 +36,8 @@ HELP_TEXT = """📖 راهنمای استفاده از ردپا
 /email — بررسی یک ایمیل
 /breach — همان بررسی ایمیل
 /analyze — تحلیل اینستاگرام
+/sherlock YOUR_USERNAME — جستجوی رایگان یوزرنیم در وب (در صورت فعال‌بودن)
+یکسان بودن یوزرنیم، مالکیت مشترک حساب‌ها را ثابت نمی‌کند.
 /help — راهنما
 /channel — کانال رسمی
 📩 برای مشکل پرداخت یا استفاده، «پشتیبانی» را بزنید.
@@ -42,6 +46,7 @@ HELP_TEXT = """📖 راهنمای استفاده از ردپا
 def _persistent_keyboard(user_id=0):
     from app.config import config
     rows = [[EMAIL_BUTTON, INSTAGRAM_BUTTON], [BUY_BUTTON, ORDERS_BUTTON],
+            [SHERLOCK_BUTTON],
             ["👤 حساب من", HELP_BUTTON], ["📩 پشتیبانی", "📢 کانال اطلاع‌رسانی"]]
     if user_id in config.admin_ids:
         rows.append(["⚙️ پنل ادمین"])
@@ -125,6 +130,7 @@ async def reply_keyboard_router(update, context):
         return False
     text = update.message.text.strip()
     routes = {EMAIL_BUTTON: email_prompt, "🔍 تحلیل آیدی": analyze_shortcut_handler,
+              SHERLOCK_BUTTON: sherlock_prompt,
               INSTAGRAM_BUTTON: analyze_shortcut_handler, ORDERS_BUTTON: orders_handler,
               BUY_BUTTON: plans_shortcut_handler, "💳 خرید اشتراک": plans_shortcut_handler,
               "👤 حساب من": account_shortcut_handler, HELP_BUTTON: help_handler,

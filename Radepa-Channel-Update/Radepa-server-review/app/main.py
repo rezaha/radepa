@@ -29,6 +29,8 @@ from app.services.abstract_email import AbstractEmail
 from app.handlers.channel_stats import channel_stats_command
 from app.handlers.instagram_inspect import instagram_inspect_command
 from app.services.telegram_menu import configure_application_menu
+from app.services.sherlock_service import SherlockService
+from app.handlers.sherlock import sherlock_command, sherlock_prompt_callback
 logger = get_logger(__name__)
 
 def _seed_plans():
@@ -45,6 +47,9 @@ async def _on_error(update, context):
     logger.error("Unhandled bot error: %s", type(context.error).__name__)
 
 async def _on_shutdown(application):
+    sherlock = application.bot_data.get("sherlock_service")
+    if sherlock:
+        await sherlock.close()
     await application.bot_data["leakcheck_public"].close()
     await application.bot_data["abstract_email"].close()
 
@@ -100,6 +105,11 @@ def main():
     app = builder.build()
     app.bot_data["bot_name"] = config.bot_name
     app.bot_data["job_service"] = job_service
+    app.bot_data["sherlock_service"] = SherlockService(
+        enabled=config.sherlock_enabled, binary=config.sherlock_binary,
+        max_concurrent=config.sherlock_max_concurrent,
+        site_timeout=config.sherlock_site_timeout, total_timeout=config.sherlock_total_timeout,
+        cooldown=config.sherlock_cooldown)
     app.bot_data["leakcheck_public"] = LeakCheckPublic()
     app.bot_data["abstract_email"] = AbstractEmail(os.environ.get("ABSTRACT_API_KEY", "").strip())
     app.add_error_handler(_on_error)
@@ -111,6 +121,8 @@ def main():
     app.add_handler(CallbackQueryHandler(clear_pending_email), group=-2)
     app.add_handler(CommandHandler("start",   start_handler))
     app.add_handler(CommandHandler("help",    help_handler))
+    app.add_handler(CommandHandler("sherlock", sherlock_command))
+    app.add_handler(CallbackQueryHandler(sherlock_prompt_callback, pattern="^menu:sherlock$"))
     app.add_handler(CommandHandler("cancel", main_menu_callback))
     app.add_handler(CallbackQueryHandler(help_handler, pattern="^menu:help$"))
     app.add_handler(CommandHandler("analyze", analyze_shortcut_handler))

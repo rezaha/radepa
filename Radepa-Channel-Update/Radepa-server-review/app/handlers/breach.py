@@ -10,9 +10,10 @@ from app.db.repos import OrderRepo, UserRepo
 from app.utils.keyboards import account_keyboard
 from app.services.leakcheck_public import BreachSummary, LeakCheckPublic, LeakCheckUnavailable
 from app.utils.email_utils import normalize_email
+from app.utils.keyboards import SHERLOCK_BUTTON
 
 EMAIL_BUTTON = "📧 بررسی ایمیل"
-_MENU_TEXTS = {EMAIL_BUTTON, "🔍 تحلیل آیدی", "💳 خرید اشتراک", "👤 حساب من",
+_MENU_TEXTS = {SHERLOCK_BUTTON, EMAIL_BUTTON, "🔍 تحلیل آیدی", "💳 خرید اشتراک", "👤 حساب من",
                "🔎 تحلیل اینستاگرام", "🧾 سفارش‌های من", "📩 پشتیبانی", "⚙️ پنل ادمین", "📖 راهنمای استفاده", "💳 خرید جست‌وجو", "📢 کانال اطلاع‌رسانی"}
 _OTHER_INPUTS = ("awaiting_instagram_username", "awaiting_support_message",
                  "adm_await", "rejecting_order_id")

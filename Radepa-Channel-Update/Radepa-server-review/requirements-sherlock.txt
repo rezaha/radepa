@@ -1,0 +1,2 @@
+# Optional CLI, preferably installed in a separate venv on the same host.
+sherlock-project==0.16.2

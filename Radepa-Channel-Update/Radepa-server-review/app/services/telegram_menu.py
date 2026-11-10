@@ -17,6 +17,7 @@ PUBLIC_COMMANDS = (
     BotCommand('orders', '🧾 سفارش‌ها و پیگیری پرداخت'),
     BotCommand('email', '📧 بررسی نشت یک ایمیل'),
     BotCommand('analyze', '🔎 تحلیل ردپای عمومی اینستاگرام'),
+    BotCommand('sherlock', '🔎 جستجوی رایگان یوزرنیم در وب'),
     BotCommand('help', '📖 راهنمای استفاده'),
     BotCommand('channel', '📢 کانال اطلاع‌رسانی'),
     BotCommand('cancel', '↩️ لغو ورودی و بازگشت به منو'),

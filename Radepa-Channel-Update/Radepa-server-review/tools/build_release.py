@@ -18,7 +18,7 @@ def payload(root=ROOT):
         if not name: continue
         path=root/name
         relative=Path(name)
-        allowed=(relative.parts[0] in FOLDERS and path.suffix in EXTENSIONS) or name=='requirements.txt' or (len(relative.parts)==1 and path.suffix=='.md')
+        allowed=(relative.parts[0] in FOLDERS and path.suffix in EXTENSIONS) or name in ('requirements.txt', 'requirements-sherlock.txt') or (len(relative.parts)==1 and path.suffix=='.md')
         if not allowed: continue
         if path.is_symlink() or path.resolve()!=path.absolute(): raise ValueError('Bundle symlinks are forbidden')
         if path.is_file():files.append(path)

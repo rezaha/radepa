@@ -33,6 +33,12 @@ class Config:
     serpapi_key_2: str
     google_api_key: str
     google_cse_id: str
+    sherlock_enabled: bool = False
+    sherlock_binary: str = "sherlock"
+    sherlock_max_concurrent: int = 1
+    sherlock_site_timeout: int = 10
+    sherlock_total_timeout: int = 120
+    sherlock_cooldown: int = 60
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -54,6 +60,12 @@ class Config:
             serpapi_key_2=_optional("SERPAPI_KEY_2", ""),
             google_api_key=_optional("GOOGLE_API_KEY", ""),
             google_cse_id=_optional("GOOGLE_CSE_ID", ""),
+            sherlock_enabled=_optional("SHERLOCK_ENABLED", "false").lower() in ("true", "1", "yes", "on"),
+            sherlock_binary=_optional("SHERLOCK_BINARY", "sherlock"),
+            sherlock_max_concurrent=int(_optional("SHERLOCK_MAX_CONCURRENT", "1")),
+            sherlock_site_timeout=int(_optional("SHERLOCK_SITE_TIMEOUT", "10")),
+            sherlock_total_timeout=int(_optional("SHERLOCK_TOTAL_TIMEOUT", "120")),
+            sherlock_cooldown=int(_optional("SHERLOCK_COOLDOWN", "60")),
         )
 
 config: Config = Config.from_env()

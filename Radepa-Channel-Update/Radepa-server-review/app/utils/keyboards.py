@@ -3,9 +3,11 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 INSTAGRAM_BUTTON = "🔎 تحلیل اینستاگرام"
 ORDERS_BUTTON = "🧾 سفارش‌های من"
+SHERLOCK_BUTTON = "🔎 جستجوی یوزرنیم در وب"
 
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton(SHERLOCK_BUTTON, callback_data="menu:sherlock")],
         [InlineKeyboardButton("📧 بررسی ایمیل", callback_data="menu:email"),
          InlineKeyboardButton(INSTAGRAM_BUTTON, callback_data="menu:analyze")],
         [InlineKeyboardButton("💳 خرید جست‌وجو", callback_data="menu:plans"),

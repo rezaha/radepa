@@ -157,7 +157,8 @@ class ReleaseTests(unittest.TestCase):
         (self.source/'.env').write_text('SECRET=never-package')
         (self.source/'users.db').write_text('private')
         (self.source/'untracked.py').write_text('private')
-        tracked=b'app/main.py\0requirements.txt\0.env\0users.db\0tools/release_smoke.py\0'
+        (self.source/'requirements-sherlock.txt').write_text('sherlock-project==0.16.2\n')
+        tracked=b'app/main.py\0requirements.txt\0requirements-sherlock.txt\0.env\0users.db\0tools/release_smoke.py\0'
         def git(args,**kwargs):
             if 'status' in args:return b''
             if 'ls-files' in args:return tracked
@@ -170,6 +171,10 @@ class ReleaseTests(unittest.TestCase):
             self.assertNotIn('radepa-release/users.db',names)
             self.assertNotIn('radepa-release/untracked.py',names)
             self.assertIn('radepa-release/app/main.py',names)
+            self.assertIn('radepa-release/requirements-sherlock.txt',names)
+            extracted=self.root/'extracted'
+            archive.extractall(extracted)
+        manager.verify(extracted/'radepa-release')
 
     def test_concurrent_deployment_lock_is_rejected(self):
         lock=self.root/'deployment.lock'
